@@ -64,6 +64,10 @@
     background:#fff; height:80vh; display:none;
   }
   #previewFrame{width:100%; height:100%; border:none; display:block;}
+  #previewExternalMsg{
+    display:none; align-items:center; justify-content:center; height:100%;
+    padding:20px; text-align:center; color:var(--muted); font-size:.95rem;
+  }
   @media (max-width: 600px){
     #previewBox{height:55vh;}
   }
@@ -92,6 +96,7 @@
 
     <div id="previewBox">
       <iframe id="previewFrame"></iframe>
+      <div id="previewExternalMsg"></div>
     </div>
 
     <div class="qrSection">
@@ -149,15 +154,28 @@
     });
     statusEl.innerHTML = `Most szól: <b>${song.title}</b>`;
 
-    // Beépített előnézet, ugyanúgy jelenítve meg, mint a vieweren
+    // Beépített előnézet — csak a saját (github.io-n hostolt) tartalmakat
+    // ágyazzuk be, mert külső oldalaknál (reklámok, videók) nem
+    // kontrollálható, mit csinál az adott oldal egy iframe-ben.
     const previewBox = document.getElementById('previewBox');
     const previewFrame = document.getElementById('previewFrame');
+    const previewExternalMsg = document.getElementById('previewExternalMsg');
     previewBox.style.display = 'block';
     const absoluteUrl = new URL(song.url, window.location.href).href;
-    if(song.type === 'pdf'){
-      previewFrame.src = 'https://docs.google.com/viewer?url=' + encodeURIComponent(absoluteUrl) + '&embedded=true';
+    const isExternal = /^https?:\/\//i.test(song.url) && !absoluteUrl.startsWith(window.location.origin);
+
+    if(isExternal){
+      previewFrame.style.display = 'none';
+      previewExternalMsg.style.display = 'flex';
+      previewExternalMsg.textContent = 'Külső oldal — nincs beépített előnézet (a nézők a viewer.html oldalon látni fogják).';
     } else {
-      previewFrame.src = song.url;
+      previewExternalMsg.style.display = 'none';
+      previewFrame.style.display = 'block';
+      if(song.type === 'pdf'){
+        previewFrame.src = 'https://docs.google.com/viewer?url=' + encodeURIComponent(absoluteUrl) + '&embedded=true';
+      } else {
+        previewFrame.src = song.url;
+      }
     }
   }
 
