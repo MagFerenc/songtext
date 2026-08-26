@@ -115,7 +115,16 @@
     idleScreen.style.display = 'none';
     songScreen.style.display = 'flex';
     songTitleBar.textContent = data.title || '';
-    songFrame.src = data.url;
+
+    // A PDF-eket egy külső megjelenítőn keresztül töltjük be, mert sok
+    // mobil böngésző (pl. Android Chrome) letöltésre kínálja fel a PDF-et
+    // közvetlen iframe-ben, ahelyett hogy megmutatná.
+    const absoluteUrl = new URL(data.url, window.location.href).href;
+    if(data.type === 'pdf'){
+      songFrame.src = 'https://docs.google.com/viewer?url=' + encodeURIComponent(absoluteUrl) + '&embedded=true';
+    } else {
+      songFrame.src = data.url;
+    }
     openExternal.href = data.url;
   }, (err) => {
     connStatus.textContent = 'Kapcsolódási hiba — ellenőrizd a firebase-config.js beállításait.';
