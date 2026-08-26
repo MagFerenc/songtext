@@ -48,6 +48,13 @@
     text-decoration:none; cursor:pointer;
   }
   .linkbtn:hover{text-decoration:underline;}
+  .qrSection{
+    margin-top:22px; padding-top:18px; border-top:1px solid #374151;
+    text-align:center;
+  }
+  .qrSection p{font-size:.8rem; color:var(--muted); margin:0 0 10px;}
+  #qrBox{background:#fff; padding:10px; border-radius:12px; display:inline-block;}
+  #qrLink{display:block; margin-top:8px; font-size:.75rem; color:#93c5fd; word-break:break-all;}
 </style>
 </head>
 <body>
@@ -72,16 +79,35 @@
     <a class="linkbtn" id="showUrlBtn">🔗 URL megnyitása (saját ellenőrzéshez)</a>
 
     <div class="status" id="status">Nincs kiválasztott dal</div>
+
+    <div class="qrSection">
+      <p>Ez a QR-kód a néző oldalra visz — ezt is kivetítheted / megmutathatod</p>
+      <div id="qrBox"></div>
+      <a id="qrLink" target="_blank" rel="noopener"></a>
+    </div>
   </div>
 
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script src="firebase-config.js"></script>
 <script src="songs.js"></script>
 <script>
   firebase.initializeApp(firebaseConfig);
   const db = firebase.database();
   const songRef = db.ref('currentSong');
+
+  // QR kód, ami a viewer.html oldalra mutat (feltételezve, hogy ugyanabban
+  // a mappában van, mint ez a controller.html)
+  const viewerUrl = window.location.href.replace(/controller\.html.*$/, 'viewer.html');
+  new QRCode(document.getElementById('qrBox'), {
+    text: viewerUrl,
+    width: 160,
+    height: 160
+  });
+  const qrLinkEl = document.getElementById('qrLink');
+  qrLinkEl.href = viewerUrl;
+  qrLinkEl.textContent = viewerUrl;
 
   const songSelect = document.getElementById('songSelect');
   const statusEl = document.getElementById('status');
