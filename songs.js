@@ -22,6 +22,6 @@
 const SONGS = [
   { id: 1, title: "Örökké tart – Példa 1", type: "pdf", url: "dalok/Orokke tart.pdf" },
   { id: 2, title: "Példa dal x – Teszt 2", type: "pdf", url: "dalok/teszt-dal.pdf" },
-  { id: 3, title: "Példa dal 3 – Öröm", type: "web", url: "https://example.com/dalok/orom.html" },
+  { id: 3, title: "Példa dal 3 – Öröm", type: "web", url: "https://www.dalszoveg.hu/d1179796/zambo_jimmy/engem_csak_szeretni_kell-dalszoveg.html" },
   { id: 4, title: "Példa dal 4 – Teszt 4", type: "pdf", url: "dalok/teszt-dal.pdf" },
 ];
