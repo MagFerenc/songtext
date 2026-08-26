@@ -34,6 +34,11 @@
     padding:10px 14px; border-radius:999px; text-decoration:none; font-weight:700;
     font-size:.85rem; box-shadow:0 6px 18px rgba(0,0,0,.4);
   }
+  #miniQr{
+    position:fixed; left:16px; bottom:16px; background:#fff; padding:6px;
+    border-radius:10px; box-shadow:0 6px 18px rgba(0,0,0,.4); line-height:0;
+  }
+  #miniQr img, #miniQr canvas{display:block; width:64px; height:64px;}
 </style>
 </head>
 <body>
@@ -49,6 +54,7 @@
     <div id="songTitleBar"></div>
     <iframe id="songFrame"></iframe>
     <a id="openExternal" target="_blank" rel="noopener">Megnyitás új lapon ↗</a>
+    <div id="miniQr"></div>
   </div>
 
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
@@ -75,6 +81,13 @@
     text: window.location.href.split('#')[0],
     width: 200,
     height: 200
+  });
+
+  // Kis QR kód, ami akkor is látszik, amikor már megy egy dal
+  new QRCode(document.getElementById('miniQr'), {
+    text: window.location.href.split('#')[0],
+    width: 64,
+    height: 64
   });
 
   let gotFirstValue = false;
