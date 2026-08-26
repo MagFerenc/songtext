@@ -88,8 +88,6 @@
       <button id="selectNumBtn" class="primary">Kiválaszt</button>
     </div>
 
-    <a class="linkbtn" id="showUrlBtn">🔗 URL megnyitása (saját ellenőrzéshez)</a>
-
     <div class="status" id="status">Nincs kiválasztott dal</div>
 
     <div id="previewBox">
@@ -126,7 +124,6 @@
 
   const songSelect = document.getElementById('songSelect');
   const statusEl = document.getElementById('status');
-  const showUrlBtn = document.getElementById('showUrlBtn');
 
   let currentIndex = -1;
 
@@ -151,7 +148,6 @@
       updatedAt: Date.now()
     });
     statusEl.innerHTML = `Most szól: <b>${song.title}</b>`;
-    showUrlBtn.href = song.url;
 
     // Beépített előnézet, ugyanúgy jelenítve meg, mint a vieweren
     const previewBox = document.getElementById('previewBox');
@@ -183,9 +179,6 @@
     }
     selectSong(idx);
   });
-
-  showUrlBtn.target = '_blank';
-  showUrlBtn.rel = 'noopener';
 </script>
 </body>
 </html>
