@@ -29,11 +29,6 @@
     border-bottom:1px solid #1f2937; text-align:left;
   }
   #songFrame{flex:1; width:100%; border:none; background:#fff;}
-  #openExternal{
-    position:fixed; right:16px; bottom:16px; background:#22c55e; color:#052e16;
-    padding:10px 14px; border-radius:999px; text-decoration:none; font-weight:700;
-    font-size:.85rem; box-shadow:0 6px 18px rgba(0,0,0,.4);
-  }
   #miniQr{
     position:fixed; left:16px; bottom:16px; background:#fff; padding:6px;
     border-radius:10px; box-shadow:0 6px 18px rgba(0,0,0,.4); line-height:0;
@@ -53,7 +48,6 @@
   <div id="songScreen">
     <div id="songTitleBar"></div>
     <iframe id="songFrame"></iframe>
-    <a id="openExternal" target="_blank" rel="noopener">Megnyitás új lapon ↗</a>
     <div id="miniQr"></div>
   </div>
 
@@ -74,7 +68,6 @@
   const songScreen = document.getElementById('songScreen');
   const songTitleBar = document.getElementById('songTitleBar');
   const songFrame = document.getElementById('songFrame');
-  const openExternal = document.getElementById('openExternal');
 
   // QR kód, ami saját magára (erre a viewer oldalra) mutat
   new QRCode(qrBox, {
@@ -125,7 +118,6 @@
     } else {
       songFrame.src = data.url;
     }
-    openExternal.href = data.url;
   }, (err) => {
     connStatus.textContent = 'Kapcsolódási hiba — ellenőrizd a firebase-config.js beállításait.';
     connStatus.style.display = 'block';
