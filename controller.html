@@ -16,7 +16,7 @@
   }
   .card{
     background:var(--panel); border-radius:16px; padding:28px;
-    width:100%; max-width:480px; box-shadow:0 10px 30px rgba(0,0,0,.4);
+    width:100%; max-width:700px; box-shadow:0 10px 30px rgba(0,0,0,.4);
   }
   h1{font-size:1.4rem; margin:0 0 4px;}
   p.sub{color:var(--muted); margin:0 0 20px; font-size:.9rem;}
@@ -55,6 +55,11 @@
   .qrSection p{font-size:.95rem; color:var(--text); font-weight:600; margin:0 0 12px;}
   #qrBox{background:#fff; padding:10px; border-radius:12px; display:inline-block;}
   #qrLink{display:block; margin-top:8px; font-size:.75rem; color:#93c5fd; word-break:break-all;}
+  #previewBox{
+    margin-top:16px; border-radius:10px; overflow:hidden; border:1px solid #374151;
+    background:#fff; height:420px; display:none;
+  }
+  #previewFrame{width:100%; height:100%; border:none; display:block;}
 </style>
 </head>
 <body>
@@ -79,6 +84,10 @@
     <a class="linkbtn" id="showUrlBtn">🔗 URL megnyitása (saját ellenőrzéshez)</a>
 
     <div class="status" id="status">Nincs kiválasztott dal</div>
+
+    <div id="previewBox">
+      <iframe id="previewFrame"></iframe>
+    </div>
 
     <div class="qrSection">
       <p>Oszd meg másokkal — olvassák be a QR-kódot</p>
@@ -137,6 +146,17 @@
     });
     statusEl.innerHTML = `Most szól: <b>${song.title}</b>`;
     showUrlBtn.href = song.url;
+
+    // Beépített előnézet, ugyanúgy jelenítve meg, mint a vieweren
+    const previewBox = document.getElementById('previewBox');
+    const previewFrame = document.getElementById('previewFrame');
+    previewBox.style.display = 'block';
+    const absoluteUrl = new URL(song.url, window.location.href).href;
+    if(song.type === 'pdf'){
+      previewFrame.src = 'https://docs.google.com/viewer?url=' + encodeURIComponent(absoluteUrl) + '&embedded=true';
+    } else {
+      previewFrame.src = song.url;
+    }
   }
 
   songSelect.addEventListener('change', () => selectSong(parseInt(songSelect.value, 10)));
