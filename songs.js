@@ -21,6 +21,6 @@
 // ============================================================
 const SONGS = [
   { id: 1, title: "Örökké tart – Példa 1", type: "pdf", url: "dalok/Orokke tart.pdf" },
-  { id: 2, title: "Példa dal 2 – Áldás (saját feltöltött PDF)", type: "pdf", url: "dalok/aldas.pdf" },
+  { id: 2, title: "Példa dal 2 – Teszt 2", type: "pdf", url: "dalok/teszt-dal.pdf" },
   { id: 3, title: "Példa dal 3 – Öröm", type: "web", url: "https://example.com/dalok/orom.html" },
 ];
