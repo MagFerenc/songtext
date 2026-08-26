@@ -28,7 +28,15 @@
     padding:14px 18px; background:#111827; font-size:1.1rem; font-weight:700;
     border-bottom:1px solid #1f2937; text-align:left;
   }
-  #songFrame{flex:1; width:100%; border:none; background:#fff;}
+  #songFrame{flex:1; width:100%; border:none; background:#fff; display:none;}
+  #pdfContainer{
+    flex:1; width:100%; overflow-y:auto; background:#fff; display:none;
+    -webkit-overflow-scrolling:touch;
+  }
+  #pdfContainer canvas{display:block; width:100%; height:auto; margin:0 auto;}
+  #pdfStatus{
+    padding:20px; color:#374151; font-size:.95rem; background:#fff;
+  }
   #miniQrBar{
     display:flex; align-items:center; justify-content:center; gap:10px;
     padding:8px; background:#111827; border-top:1px solid #1f2937;
@@ -51,6 +59,7 @@
   <div id="songScreen">
     <div id="songTitleBar"></div>
     <iframe id="songFrame"></iframe>
+    <div id="pdfContainer"></div>
     <div id="miniQrBar">
       <span>Oszd meg — olvasd be a QR-kódot</span>
       <div id="miniQr"></div>
@@ -60,8 +69,14 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script src="firebase-config.js"></script>
 <script>
+  // PDF.js beállítása — a PDF-et közvetlenül ezen az oldalon rajzoljuk ki,
+  // így nincs külső átirányítás és nem indul el letöltés sehol.
+  pdfjsLib.GlobalWorkerOptions.workerSrc =
+    'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
   firebase.initializeApp(firebaseConfig);
   const db = firebase.database();
   const songRef = db.ref('currentSong');
@@ -74,6 +89,7 @@
   const songScreen = document.getElementById('songScreen');
   const songTitleBar = document.getElementById('songTitleBar');
   const songFrame = document.getElementById('songFrame');
+  const pdfContainer = document.getElementById('pdfContainer');
 
   // QR kód, ami saját magára (erre a viewer oldalra) mutat
   new QRCode(qrBox, {
@@ -89,19 +105,44 @@
     height: 64
   });
 
-  let gotFirstValue = false;
+  let renderToken = 0;
+
+  async function renderPdf(url){
+    const myToken = ++renderToken;
+    pdfContainer.innerHTML = '<div id="pdfStatus">Betöltés…</div>';
+    try{
+      const pdf = await pdfjsLib.getDocument(url).promise;
+      if(myToken !== renderToken) return;   // közben másik dalra váltottak
+      pdfContainer.innerHTML = '';
+      const targetWidth = pdfContainer.clientWidth || 800;
+      for(let i = 1; i <= pdf.numPages; i++){
+        const page = await pdf.getPage(i);
+        if(myToken !== renderToken) return;
+        const base = page.getViewport({ scale: 1 });
+        // 2x felbontás az élesebb képért
+        const viewport = page.getViewport({ scale: (targetWidth / base.width) * 2 });
+        const canvas = document.createElement('canvas');
+        canvas.width = viewport.width;
+        canvas.height = viewport.height;
+        pdfContainer.appendChild(canvas);
+        await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
+        if(myToken !== renderToken) return;
+      }
+    } catch(e){
+      if(myToken !== renderToken) return;
+      pdfContainer.innerHTML = '<div id="pdfStatus">A PDF-et nem sikerült betölteni.</div>';
+      console.error(e);
+    }
+  }
 
   songRef.on('value', (snap) => {
     connStatus.style.display = 'none';
-
-    if(!gotFirstValue){
-      gotFirstValue = true;
-    }
 
     const data = snap.val();
 
     if(!data || !data.url){
       // Nincs még kiválasztott dal
+      renderToken++;                   // futó PDF-rajzolás leállítása
       songScreen.style.display = 'none';
       idleScreen.style.display = 'flex';
       waitMsg.style.display = 'block';
@@ -115,13 +156,17 @@
     songScreen.style.display = 'flex';
     songTitleBar.textContent = data.title || '';
 
-    // A PDF-eket egy külső megjelenítőn keresztül töltjük be, mert sok
-    // mobil böngésző (pl. Android Chrome) letöltésre kínálja fel a PDF-et
-    // közvetlen iframe-ben, ahelyett hogy megmutatná.
-    const absoluteUrl = new URL(data.url, window.location.href).href;
     if(data.type === 'pdf'){
-      songFrame.src = 'https://docs.google.com/viewer?url=' + encodeURIComponent(absoluteUrl) + '&embedded=true';
+      songFrame.style.display = 'none';
+      songFrame.src = 'about:blank';
+      pdfContainer.style.display = 'block';
+      pdfContainer.scrollTop = 0;
+      renderPdf(new URL(data.url, window.location.href).href);
     } else {
+      renderToken++;                   // futó PDF-rajzolás leállítása
+      pdfContainer.style.display = 'none';
+      pdfContainer.innerHTML = '';
+      songFrame.style.display = 'block';
       songFrame.src = data.url;
     }
   }, (err) => {
