@@ -24,4 +24,5 @@ const SONGS = [
   { id: 2, title: "Példa dal x – Teszt 2", type: "pdf", url: "dalok/teszt-dal.pdf" },
   { id: 3, title: "Példa dal 3 – Öröm", type: "web", url: "https://www.dalszoveg.hu/d1179796/zambo_jimmy/engem_csak_szeretni_kell-dalszoveg.html" },
   { id: 4, title: "Példa dal 4 – Teszt 4", type: "pdf", url: "dalok/teszt-dal.pdf" },
+  { id: 5, title: "Szerelem első vérig", type: "web", url: "dalok/02-szerelem-elso-verig.html" },
 ];
