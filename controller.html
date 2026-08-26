@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dal vezérlő</title>
+<style>
+  :root{
+    --bg:#111827; --panel:#1f2937; --accent:#22c55e; --text:#f9fafb; --muted:#9ca3af;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;
+    background:var(--bg); color:var(--text); min-height:100vh;
+    display:flex; align-items:center; justify-content:center; padding:20px;
+  }
+  .card{
+    background:var(--panel); border-radius:16px; padding:28px;
+    width:100%; max-width:480px; box-shadow:0 10px 30px rgba(0,0,0,.4);
+  }
+  h1{font-size:1.4rem; margin:0 0 4px;}
+  p.sub{color:var(--muted); margin:0 0 20px; font-size:.9rem;}
+  label{display:block; font-size:.85rem; color:var(--muted); margin:16px 0 6px;}
+  select, input[type=number]{
+    width:100%; padding:10px; border-radius:8px; border:1px solid #374151;
+    background:#111827; color:var(--text); font-size:1rem;
+  }
+  .row{display:flex; gap:10px; margin-top:10px;}
+  .row > *{flex:1;}
+  button{
+    cursor:pointer; border:none; border-radius:8px; padding:12px 14px;
+    font-size:1rem; font-weight:600; background:#374151; color:var(--text);
+    transition:background .15s;
+  }
+  button:hover{background:#4b5563;}
+  button.primary{background:var(--accent); color:#052e16;}
+  button.primary:hover{background:#16a34a;}
+  .numrow{display:flex; gap:10px;}
+  .numrow input{flex:1;}
+  .numrow button{flex:0 0 auto;}
+  .status{
+    margin-top:22px; padding:14px; border-radius:10px; background:#111827;
+    border:1px solid #374151; font-size:.95rem;
+  }
+  .status b{color:var(--accent);}
+  .linkbtn{
+    display:inline-block; margin-top:14px; font-size:.85rem; color:#93c5fd;
+    text-decoration:none; cursor:pointer;
+  }
+  .linkbtn:hover{text-decoration:underline;}
+</style>
+</head>
+<body>
+  <div class="card">
+    <h1>🎤 Dal vezérlő</h1>
+    <p class="sub">Válaszd ki, melyik dal menjen — a nézők azonnal látni fogják.</p>
+
+    <label for="songSelect">Dal (lejátszási sorrend)</label>
+    <select id="songSelect"></select>
+
+    <div class="row">
+      <button id="prevBtn">← Előző</button>
+      <button id="nextBtn">Következő →</button>
+    </div>
+
+    <label for="songNum">Dal száma</label>
+    <div class="numrow">
+      <input type="number" id="songNum" min="1" placeholder="pl. 3">
+      <button id="selectNumBtn" class="primary">Kiválaszt</button>
+    </div>
+
+    <a class="linkbtn" id="showUrlBtn">🔗 URL megnyitása (saját ellenőrzéshez)</a>
+
+    <div class="status" id="status">Nincs kiválasztott dal</div>
+  </div>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<script src="firebase-config.js"></script>
+<script src="songs.js"></script>
+<script>
+  firebase.initializeApp(firebaseConfig);
+  const db = firebase.database();
+  const songRef = db.ref('currentSong');
+
+  const songSelect = document.getElementById('songSelect');
+  const statusEl = document.getElementById('status');
+  const showUrlBtn = document.getElementById('showUrlBtn');
+
+  let currentIndex = -1;
+
+  SONGS.forEach((s, i) => {
+    const opt = document.createElement('option');
+    opt.value = i;
+    opt.textContent = `${s.id}. ${s.title}`;
+    songSelect.appendChild(opt);
+  });
+
+  function selectSong(index){
+    if(index < 0 || index >= SONGS.length) return;
+    currentIndex = index;
+    songSelect.value = index;
+    const song = SONGS[index];
+    songRef.set({
+      index: index,
+      id: song.id,
+      title: song.title,
+      type: song.type,
+      url: song.url,
+      updatedAt: Date.now()
+    });
+    statusEl.innerHTML = `Most szól: <b>${song.title}</b>`;
+    showUrlBtn.href = song.url;
+  }
+
+  songSelect.addEventListener('change', () => selectSong(parseInt(songSelect.value, 10)));
+
+  document.getElementById('prevBtn').addEventListener('click', () => {
+    selectSong(Math.max(0, currentIndex - 1));
+  });
+  document.getElementById('nextBtn').addEventListener('click', () => {
+    selectSong(Math.min(SONGS.length - 1, currentIndex + 1));
+  });
+
+  document.getElementById('selectNumBtn').addEventListener('click', () => {
+    const num = parseInt(document.getElementById('songNum').value, 10);
+    const idx = SONGS.findIndex(s => s.id === num);
+    if(idx === -1){
+      alert('Nincs ilyen számú dal.');
+      return;
+    }
+    selectSong(idx);
+  });
+
+  showUrlBtn.target = '_blank';
+  showUrlBtn.rel = 'noopener';
+</script>
+</body>
+</html>

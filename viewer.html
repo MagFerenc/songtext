@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Most szól</title>
+<style>
+  html,body{height:100%; margin:0;}
+  body{
+    font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;
+    background:#0b1220; color:#f9fafb;
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    text-align:center; padding:24px;
+  }
+  #idleScreen{display:flex; flex-direction:column; align-items:center; gap:16px;}
+  h1{font-size:1.3rem; margin:0; color:#9ca3af; font-weight:500;}
+  #waitMsg{font-size:1.1rem; color:#f9fafb; margin:0;}
+  #qrBox{
+    background:#fff; padding:14px; border-radius:14px; margin-top:10px;
+  }
+  #qrCaption{font-size:.85rem; color:#9ca3af; margin-top:8px;}
+
+  #songScreen{
+    display:none; width:100%; height:100%; position:fixed; inset:0;
+    flex-direction:column; background:#0b1220;
+  }
+  #songTitleBar{
+    padding:14px 18px; background:#111827; font-size:1.1rem; font-weight:700;
+    border-bottom:1px solid #1f2937; text-align:left;
+  }
+  #songFrame{flex:1; width:100%; border:none; background:#fff;}
+  #openExternal{
+    position:fixed; right:16px; bottom:16px; background:#22c55e; color:#052e16;
+    padding:10px 14px; border-radius:999px; text-decoration:none; font-weight:700;
+    font-size:.85rem; box-shadow:0 6px 18px rgba(0,0,0,.4);
+  }
+</style>
+</head>
+<body>
+
+  <div id="idleScreen">
+    <h1 id="connStatus">Csatlakozás…</h1>
+    <p id="waitMsg" style="display:none;">Várakozás, hogy az operátor kiválasszon egy dalt…</p>
+    <div id="qrBox" style="display:none;"></div>
+    <p id="qrCaption" style="display:none;">Oszd meg másokkal — olvassák be a QR-kódot</p>
+  </div>
+
+  <div id="songScreen">
+    <div id="songTitleBar"></div>
+    <iframe id="songFrame"></iframe>
+    <a id="openExternal" target="_blank" rel="noopener">Megnyitás új lapon ↗</a>
+  </div>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="firebase-config.js"></script>
+<script>
+  firebase.initializeApp(firebaseConfig);
+  const db = firebase.database();
+  const songRef = db.ref('currentSong');
+
+  const connStatus = document.getElementById('connStatus');
+  const waitMsg = document.getElementById('waitMsg');
+  const qrBox = document.getElementById('qrBox');
+  const qrCaption = document.getElementById('qrCaption');
+  const idleScreen = document.getElementById('idleScreen');
+  const songScreen = document.getElementById('songScreen');
+  const songTitleBar = document.getElementById('songTitleBar');
+  const songFrame = document.getElementById('songFrame');
+  const openExternal = document.getElementById('openExternal');
+
+  // QR kód, ami saját magára (erre a viewer oldalra) mutat
+  new QRCode(qrBox, {
+    text: window.location.href.split('#')[0],
+    width: 200,
+    height: 200
+  });
+
+  let gotFirstValue = false;
+
+  songRef.on('value', (snap) => {
+    connStatus.style.display = 'none';
+
+    if(!gotFirstValue){
+      gotFirstValue = true;
+    }
+
+    const data = snap.val();
+
+    if(!data || !data.url){
+      // Nincs még kiválasztott dal
+      songScreen.style.display = 'none';
+      idleScreen.style.display = 'flex';
+      waitMsg.style.display = 'block';
+      qrBox.style.display = 'inline-block';
+      qrCaption.style.display = 'block';
+      return;
+    }
+
+    // Van kiválasztott dal -> mutassuk
+    idleScreen.style.display = 'none';
+    songScreen.style.display = 'flex';
+    songTitleBar.textContent = data.title || '';
+    songFrame.src = data.url;
+    openExternal.href = data.url;
+  }, (err) => {
+    connStatus.textContent = 'Kapcsolódási hiba — ellenőrizd a firebase-config.js beállításait.';
+    connStatus.style.display = 'block';
+    console.error(err);
+  });
+</script>
+</body>
+</html>
