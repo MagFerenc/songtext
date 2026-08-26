@@ -61,9 +61,12 @@
   #qrLink{display:block; margin-top:8px; font-size:.75rem; color:#93c5fd; word-break:break-all;}
   #previewBox{
     margin-top:16px; border-radius:10px; overflow:hidden; border:1px solid #374151;
-    background:#fff; height:420px; display:none;
+    background:#fff; height:80vh; display:none;
   }
   #previewFrame{width:100%; height:100%; border:none; display:block;}
+  @media (max-width: 600px){
+    #previewBox{height:55vh;}
+  }
 </style>
 </head>
 <body>
