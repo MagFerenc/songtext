@@ -22,7 +22,5 @@
 const SONGS = [
   { id: 1, title: "Örökké tart – Példa 1", type: "pdf", url: "dalok/pop/Orokke tart.pdf" },
   { id: 2, title: "Példa dal x – Teszt 2", type: "pdf", url: "dalok/teszt-dal.pdf" },
-  { id: 3, title: "Pop Példa dal 3 – Öröm", type: "pdf", url: "dalok/pop/Orokke tart.pdf" },
-  { id: 4, title: "Példa dal 4 – Teszt 4", type: "pdf", url: "dalok/teszt-dal.pdf" },
-  { id: 5, title: "Szerelem első vérig", type: "web", url: "dalok/02-szerelem-elso-verig.html" },
+  { id: 3, title: "Szerelem első vérig", type: "web", url: "dalok/02-szerelem-elso-verig.html" },
 ];
