@@ -20,7 +20,7 @@
 // a PDF ugyanabban a repóban lakik, mint ez a fájl.)
 // ============================================================
 const SONGS = [
-  { id: 1, title: "Örökké tart – Példa 1", type: "pdf", url: "dalok/Orokke tart.pdf" },
+  { id: 1, title: "Örökké tart – Példa 1", type: "pdf", url: "dalok/pop/Orokke tart.pdf" },
   { id: 2, title: "Példa dal x – Teszt 2", type: "pdf", url: "dalok/teszt-dal.pdf" },
   { id: 3, title: "Pop Példa dal 3 – Öröm", type: "pdf", url: "dalok/pop/Orokke tart.pdf" },
   { id: 4, title: "Példa dal 4 – Teszt 4", type: "pdf", url: "dalok/teszt-dal.pdf" },
