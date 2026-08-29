@@ -20,6 +20,6 @@
 // a PDF ugyanabban a repóban lakik, mint ez a fájl.)
 // ============================================================
 const SONGS = [
-  { id: 1, title: "Mindig kell egy barat", type: "pdf", url: "dalok/Mindig-kell-egy-barat.pdf" },
-  { id: 2, title: "Ujra itt van plusz", type: "pdf", url: "dalok/Ujra-itt-van-plusz.pdf" },
+  { id: 1, title: "Mindig kell egy barat", type: "pdf", url: "Dalok/Mindig-kell-egy-barat.pdf" },
+  { id: 2, title: "Ujra itt van plusz", type: "pdf", url: "Dalok/Ujra-itt-van-plusz.pdf" },
  ];
