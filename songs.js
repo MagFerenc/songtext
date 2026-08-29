@@ -23,5 +23,6 @@ const SONGS = [
   { id: 1, title: "Mindig kell egy barat", type: "pdf", url: "Dalok/Mindig-kell-egy-barat.pdf" },
   { id: 2, title: "Mi kéne még", type: "pdf", url: "Dalok/Mi-kene-meg.pdf" },
   { id: 3, title: "Seemann", type: "pdf", url: "Dalok/Seemann_n.pdf" },
-  { id: 4, title: "Ujra itt van plusz", type: "pdf", url: "Dalok/Ujra-itt-van-plusz.pdf" },
+  { id: 4, title: "Country Road", type: "pdf", url: "Dalok/Country-Road.pdf" },
+  { id: 5, title: "Ujra itt van plusz", type: "pdf", url: "Dalok/Ujra-itt-van-plusz.pdf" },
  ];
