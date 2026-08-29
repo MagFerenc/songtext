@@ -20,7 +20,7 @@
 // a PDF ugyanabban a repóban lakik, mint ez a fájl.)
 // ============================================================
 const SONGS = [
-  { id: 1, title: "Mindig kell egy barat", type: "pdf", url: "dalok/Mindig_kell_egy_barat.pdf" },
-  { id: 2, title: "Ujra itt van plusz", type: "pdf", url: "dalok/Ujra_itt_van_plusz.pdf" },
+  { id: 1, title: "Mindig kell egy barat ", type: "pdf", url: "dalok/Mindig_kell_egy_barat.pdf" },
+  { id: 2, title: "Ujra itt van plusz ", type: "pdf", url: "dalok/Ujra_itt_van_plusz.pdf" },
   { id: 3, title: "Szerelem első vérig", type: "web", url: "dalok/02-szerelem-elso-verig.html" },
 ];
