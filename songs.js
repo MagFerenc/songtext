@@ -20,7 +20,7 @@
 // a PDF ugyanabban a repóban lakik, mint ez a fájl.)
 // ============================================================
 const SONGS = [
-  { id: 1, title: "Pop - Örökké tart – Példa 1", type: "pdf", url: "dalok/pop/Orokke tart.pdf" },
+  { id: 1, title: "Pop - Mindig kell egy barat szöv – Példa 1", type: "pdf", url: "dalok/pop/Mindig kell egy barat szöv.pdf" },
   { id: 2, title: "Példa dal x – Teszt 2", type: "pdf", url: "dalok/teszt-dal.pdf" },
   { id: 3, title: "Szerelem első vérig", type: "web", url: "dalok/02-szerelem-elso-verig.html" },
 ];
