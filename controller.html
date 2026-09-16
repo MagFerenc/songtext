@@ -121,9 +121,13 @@
 <script src="songs.js"></script>
 <script>
   // PDF.js — a PDF-et közvetlenül ezen az oldalon rajzoljuk ki, így nincs
-  // külső átirányítás és nem indul el letöltés.
-  pdfjsLib.GlobalWorkerOptions.workerSrc =
-    'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+  // külső átirányítás és nem indul el letöltés. Ha a könyvtár valamiért nem
+  // töltődött be, az oldal többi része akkor is működik.
+  const HAS_PDFJS = (typeof pdfjsLib !== 'undefined');
+  if(HAS_PDFJS){
+    pdfjsLib.GlobalWorkerOptions.workerSrc =
+      'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+  }
 
   firebase.initializeApp(firebaseConfig);
   const db = firebase.database();
@@ -132,11 +136,13 @@
   // QR kód, ami a viewer.html oldalra mutat (feltételezve, hogy ugyanabban
   // a mappában van, mint ez a controller.html)
   const viewerUrl = window.location.href.replace(/controller\.html.*$/, 'viewer.html');
-  new QRCode(document.getElementById('qrBox'), {
-    text: viewerUrl,
-    width: 160,
-    height: 160
-  });
+  if(typeof QRCode !== 'undefined'){
+    new QRCode(document.getElementById('qrBox'), {
+      text: viewerUrl,
+      width: 160,
+      height: 160
+    });
+  }
   const qrLinkEl = document.getElementById('qrLink');
   qrLinkEl.textContent = viewerUrl;
 
@@ -148,16 +154,26 @@
   const previewExternalMsg = document.getElementById('previewExternalMsg');
 
   let renderToken = 0;
+  const pdfCache = {};   // egyszer betoltott PDF-et nem toltunk be ujra
 
-  async function renderPdf(url){
+  function loadPdf(url){
+    if(!pdfCache[url]){
+      pdfCache[url] = pdfjsLib.getDocument(url).promise;
+    }
+    return pdfCache[url];
+  }
+
+  async function renderPdf(url, pageFrom, pageTo){
     const myToken = ++renderToken;
     previewPdf.innerHTML = '<div class="msg">Betöltés…</div>';
     try{
-      const pdf = await pdfjsLib.getDocument(url).promise;
+      const pdf = await loadPdf(url);
       if(myToken !== renderToken) return;
       previewPdf.innerHTML = '';
+      const first = Math.max(1, pageFrom || 1);
+      const last  = Math.min(pdf.numPages, pageTo || pageFrom || pdf.numPages);
       const targetWidth = previewPdf.clientWidth || 700;
-      for(let i = 1; i <= pdf.numPages; i++){
+      for(let i = first; i <= last; i++){
         const page = await pdf.getPage(i);
         if(myToken !== renderToken) return;
         const base = page.getViewport({ scale: 1 });
@@ -196,6 +212,8 @@
       title: song.title,
       type: song.type,
       url: song.url,
+      pageFrom: song.pageFrom || null,
+      pageTo: song.pageTo || null,
       updatedAt: Date.now()
     });
     statusEl.innerHTML = `Most szól: <b>${song.title}</b>`;
@@ -215,13 +233,13 @@
       previewPdf.innerHTML = '';
       previewExternalMsg.style.display = 'flex';
       previewExternalMsg.textContent = 'Külső oldal — nincs beépített előnézet (a nézők a viewer.html oldalon látni fogják).';
-    } else if(song.type === 'pdf'){
+    } else if(song.type === 'pdf' && HAS_PDFJS){
       previewExternalMsg.style.display = 'none';
       previewFrame.style.display = 'none';
       previewFrame.src = 'about:blank';
       previewPdf.style.display = 'block';
       previewPdf.scrollTop = 0;
-      renderPdf(absoluteUrl);
+      renderPdf(absoluteUrl, song.pageFrom, song.pageTo);
     } else {
       renderToken++;
       previewExternalMsg.style.display = 'none';
