@@ -1,23 +1,27 @@
 // ============================================================
-// A DALOK LISTÁJA — ezt szerkeszd a saját dalaiddal!
-// A sorrend itt = a "Előző / Következő" gombok sorrendje.
+// A DALOK LISTÁJA
 //
-// type: "web"  -> sima weboldal, ami a dalszöveget mutatja
-//                 (pl. egy publikált Google Doc, saját html oldal, stb.)
-// type: "pdf"  -> egy PDF fájl linkje
+// Minden dalnál ott áll a PDF elérési útja és az oldalszám.
+// A legtöbb dal ugyanabból az összefűzött PDF-ből jön, csak más oldalról.
 //
-// id:    egyedi szám, ez alapján lehet a "Dal száma" mezőbe beírva
-//        közvetlenül kiválasztani egy dalt
-// title: ez jelenik meg a vezérlőn és a nézőknél
-// url:   a dalszöveg/kotta pontos, publikus linkje
+// Új dal hozzáadása ebből a PDF-ből:
+//   { id: 882, title: "Dal címe", type: "pdf", url: "Dalok/pittnerf/Szövegek_összefuzött.pdf",
+//     pageFrom: 120, pageTo: 121 }
 //
-// PDF FÁJLOK:
-// A legegyszerűbb, ha magába a "songtext" GitHub repóba töltöd fel a
-// PDF-eket, egy "dalok" nevű mappába. Ekkor az url mező egyszerűen
-// a fájl neve lesz "dalok/" előtaggal, például:
-//   { id: 5, title: "Csendes éj", type: "pdf", url: "dalok/csendes-ej.pdf" }
-// (Nem kell teljes https:// linket írni, elég a relatív útvonal, mert
-// a PDF ugyanabban a repóban lakik, mint ez a fájl.)
+// Külön PDF-ből (nem az összefűzöttből):
+//   { id: 900, title: "Dal címe", type: "pdf", url: "Dalok/valami.pdf" }
+//
+// Saját HTML dalszöveg vagy külső link:
+//   { id: 950, title: "Dal címe", type: "web", url: "Dalok/dal.html" }
+//
+// id:      egyedi szám — ezt lehet a "Dal száma" mezőbe beírva kiválasztani.
+//          NEM kell sorfolytonosnak lennie, csak egyedinek.
+// pageFrom / pageTo: a PDF tényleges oldalszáma (első oldal = 1).
+//          Egyoldalas dalnál a pageTo elhagyható.
+// Sorrend:  ahogy itt egymás után állnak = az "Előző / Következő" sorrendje.
+//
+// FIGYELEM: minden sor végén kell vessző, az utolsó után nem!
+// A mappanevek kis/nagybetű-érzékenyek.
 // ============================================================
 const SONGS = [
   { id:   1, title: "Ujra itt van plusz",                            type: "pdf", url: "Dalok/Ujra-itt-van-plusz.pdf" },
