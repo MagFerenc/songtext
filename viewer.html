@@ -74,8 +74,11 @@
 <script>
   // PDF.js beállítása — a PDF-et közvetlenül ezen az oldalon rajzoljuk ki,
   // így nincs külső átirányítás és nem indul el letöltés sehol.
-  pdfjsLib.GlobalWorkerOptions.workerSrc =
-    'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+  const HAS_PDFJS = (typeof pdfjsLib !== 'undefined');
+  if(HAS_PDFJS){
+    pdfjsLib.GlobalWorkerOptions.workerSrc =
+      'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+  }
 
   firebase.initializeApp(firebaseConfig);
   const db = firebase.database();
@@ -92,30 +95,42 @@
   const pdfContainer = document.getElementById('pdfContainer');
 
   // QR kód, ami saját magára (erre a viewer oldalra) mutat
-  new QRCode(qrBox, {
-    text: window.location.href.split('#')[0],
-    width: 200,
-    height: 200
-  });
+  if(typeof QRCode !== 'undefined'){
+    new QRCode(qrBox, {
+      text: window.location.href.split('#')[0],
+      width: 200,
+      height: 200
+    });
 
-  // Kis QR kód, ami akkor is látszik, amikor már megy egy dal
-  new QRCode(document.getElementById('miniQr'), {
-    text: window.location.href.split('#')[0],
-    width: 64,
-    height: 64
-  });
+    // Kis QR kód, ami akkor is látszik, amikor már megy egy dal
+    new QRCode(document.getElementById('miniQr'), {
+      text: window.location.href.split('#')[0],
+      width: 64,
+      height: 64
+    });
+  }
 
   let renderToken = 0;
+  const pdfCache = {};   // egyszer betöltött PDF-et nem töltünk be újra
 
-  async function renderPdf(url){
+  function loadPdf(url){
+    if(!pdfCache[url]){
+      pdfCache[url] = pdfjsLib.getDocument(url).promise;
+    }
+    return pdfCache[url];
+  }
+
+  async function renderPdf(url, pageFrom, pageTo){
     const myToken = ++renderToken;
     pdfContainer.innerHTML = '<div id="pdfStatus">Betöltés…</div>';
     try{
-      const pdf = await pdfjsLib.getDocument(url).promise;
+      const pdf = await loadPdf(url);
       if(myToken !== renderToken) return;   // közben másik dalra váltottak
       pdfContainer.innerHTML = '';
+      const first = Math.max(1, pageFrom || 1);
+      const last  = Math.min(pdf.numPages, pageTo || pageFrom || pdf.numPages);
       const targetWidth = pdfContainer.clientWidth || 800;
-      for(let i = 1; i <= pdf.numPages; i++){
+      for(let i = first; i <= last; i++){
         const page = await pdf.getPage(i);
         if(myToken !== renderToken) return;
         const base = page.getViewport({ scale: 1 });
@@ -156,12 +171,12 @@
     songScreen.style.display = 'flex';
     songTitleBar.textContent = data.title || '';
 
-    if(data.type === 'pdf'){
+    if(data.type === 'pdf' && HAS_PDFJS){
       songFrame.style.display = 'none';
       songFrame.src = 'about:blank';
       pdfContainer.style.display = 'block';
       pdfContainer.scrollTop = 0;
-      renderPdf(new URL(data.url, window.location.href).href);
+      renderPdf(new URL(data.url, window.location.href).href, data.pageFrom, data.pageTo);
     } else {
       renderToken++;                   // futó PDF-rajzolás leállítása
       pdfContainer.style.display = 'none';
