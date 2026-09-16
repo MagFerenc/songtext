@@ -21,8 +21,8 @@
 // ============================================================
 const SONGS = [
   { id: 1, title: "Ujra itt van plusz", type: "pdf", url: "Dalok/Ujra-itt-van-plusz.pdf" },
-  { id: 201, title: "Mi kéne még", type: "pdf", url: "Dalok/200-Pop/201-Mi-kene-meg.pdf" },
-  { id: 202, title: "Mindig kell egy barát", type: "pdf", url: "Dalok/200-Pop/202-Mindig-kell-egy-barat.pdf" }
-  { id: 3, title: "Seemann", type: "pdf", url: "Dalok/Seemann_n.pdf" },
-  { id: 6, title: "Country Road", type: "pdf", url: "Dalok/Country-Road.pdf" },
+  { id: 2, title: "Mi kéne még", type: "pdf", url: "Dalok/200-Pop/201-Mi-kene-meg.pdf" },
+  { id: 3, title: "Mindig kell egy barát", type: "pdf", url: "Dalok/200-Pop/202-Mindig-kell-egy-barat.pdf" }
+  { id: 4, title: "Seemann", type: "pdf", url: "Dalok/Seemann_n.pdf" },
+  { id: 5, title: "Country Road", type: "pdf", url: "Dalok/Country-Road.pdf" },
  ];
