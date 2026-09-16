@@ -111,3 +111,5 @@ const SONGS = [
   { id: 880, title: "Te és én - Ihász Gábor",                        type: "pdf", url: "Dalok/pittnerf/Szövegek_összefuzött.pdf", pageFrom: 122 },
   { id: 881, title: "Maradj velem!",                                 type: "pdf", url: "Dalok/pittnerf/Szövegek_összefuzött.pdf", pageFrom: 123 }
  ];
+
+// FIGYELEM: minden sor végén kell vessző, az utolsó után nem
