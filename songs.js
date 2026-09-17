@@ -30,7 +30,7 @@ const SONGS = [
   { id: 201, title: "Mi kéne még",                                   type: "pdf", url: "Dalok/200-Pop/201-Mi-kene-meg.pdf" },
   { id: 202, title: "Mindig kell egy barát",                         type: "pdf", url: "Dalok/200-Pop/202-Mindig-kell-egy-barat.pdf" },
   { id: 203, title: "Szép nyári nap",                                type: "pdf", url: "Dalok/200-Pop/203-Szep-nyari-nap.pdf" },
-  { id: 401, title: "Szép nyári nap",                                type: "pdf", url: "Dalok/400-mulatos/203-Szep-nyari-nap.pdf" },
+  { id: 401, title: "Pedro kocsmája",                                type: "pdf", url: "Dalok/400-mulatos/401-Pedro-kocsmaja.pdf" },
   { id: 402, title: "Szép nyári nap",                                type: "pdf", url: "Dalok/400-mulatos/203-Szep-nyari-nap.pdf" },
   { id: 801, title: "Örökké tart",                                   type: "pdf", url: "Dalok/pittnerf/Szövegek_összefuzött.pdf", pageFrom: 1, pageTo: 2 },
   { id: 802, title: "Szerelem első vérig",                           type: "pdf", url: "Dalok/pittnerf/Szövegek_összefuzött.pdf", pageFrom: 3 },
