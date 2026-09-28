@@ -112,7 +112,7 @@ const SONGS = [
   { id: 878, title: "Mikor elindul a vonat - Demjén",                type: "pdf", url: "Dalok/pittnerf/Szövegek_összefuzött.pdf", pageFrom: 120 },
   { id: 879, title: "Ha újra kezdeném",                              type: "pdf", url: "Dalok/pittnerf/Szövegek_összefuzött.pdf", pageFrom: 121 },
   { id: 880, title: "Te és én - Ihász Gábor",                        type: "pdf", url: "Dalok/pittnerf/Szövegek_összefuzött.pdf", pageFrom: 122 },
-  { id: 881, title: "Maradj velem!",                                 type: "pdf", url: "Dalok/pittnerf/Szövegek_összefuzött.pdf", pageFrom: 123 }
+  { id: 881, title: "Maradj velem!",                                 type: "pdf", url: "Dalok/pittnerf/Szövegek_összefuzött.pdf", pageFrom: 123 },
  ];
 
 // FIGYELEM: minden sor végén kell vessző, az utolsó után nem
