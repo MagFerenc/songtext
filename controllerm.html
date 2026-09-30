@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dal vezérlő</title>
+<style>
+  :root{
+    --bg:#111827; --panel:#1f2937; --accent:#22c55e; --text:#f9fafb; --muted:#9ca3af;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;
+    background:var(--bg); color:var(--text); min-height:100vh;
+    display:flex; align-items:center; justify-content:center; padding:20px;
+  }
+  .card{
+    background:var(--panel); border-radius:16px; padding:28px;
+    width:100%; max-width:700px; box-shadow:0 10px 30px rgba(0,0,0,.4);
+  }
+  @media (max-width: 600px){
+    body{padding:6px;}
+    .card{padding:12px; border-radius:10px;}
+  }
+  h1{font-size:1.4rem; margin:0 0 4px;}
+  p.sub{color:var(--muted); margin:0 0 20px; font-size:.9rem;}
+  label{display:block; font-size:.85rem; color:var(--muted); margin:16px 0 6px;}
+  select, input[type=number]{
+    width:100%; padding:10px; border-radius:8px; border:1px solid #374151;
+    background:#111827; color:var(--text); font-size:1rem;
+  }
+  .row{display:flex; gap:10px; margin-top:10px;}
+  .row > *{flex:1;}
+  button{
+    cursor:pointer; border:none; border-radius:8px; padding:12px 14px;
+    font-size:1rem; font-weight:600; background:#374151; color:var(--text);
+    transition:background .15s;
+  }
+  button:hover{background:#4b5563;}
+  button.primary{background:var(--accent); color:#052e16;}
+  button.primary:hover{background:#16a34a;}
+  .numrow{display:flex; gap:10px;}
+  .numrow input{flex:1;}
+  .numrow button{flex:0 0 auto;}
+  .status{
+    margin-top:22px; padding:14px; border-radius:10px; background:#111827;
+    border:1px solid #374151; font-size:.95rem;
+  }
+  .status b{color:var(--accent);}
+  .linkbtn{
+    display:inline-block; margin-top:14px; font-size:.85rem; color:#93c5fd;
+    text-decoration:none; cursor:pointer;
+  }
+  .linkbtn:hover{text-decoration:underline;}
+  .qrSection{
+    margin-top:22px; padding-top:18px; border-top:1px solid #374151;
+    text-align:center;
+  }
+  .qrSection p{font-size:.95rem; color:var(--text); font-weight:600; margin:0 0 12px;}
+  #qrBox{background:#fff; padding:10px; border-radius:12px; display:inline-block;}
+  #qrLink{display:block; margin-top:8px; font-size:.75rem; color:#93c5fd; word-break:break-all;}
+  #previewBox{
+    margin-top:16px; border-radius:10px; overflow:hidden; border:1px solid #374151;
+    background:#fff; height:80vh; display:none;
+  }
+  #previewFrame{width:100%; height:100%; border:none; display:none;}
+  #previewPdf{
+    display:none; width:100%; height:100%; overflow-y:auto; background:#fff;
+    -webkit-overflow-scrolling:touch;
+  }
+  #previewPdf canvas{display:block; width:100%; height:auto; margin:0 auto;}
+  #previewPdf .msg{padding:20px; color:#374151; font-size:.95rem;}
+  #previewExternalMsg{
+    display:none; align-items:center; justify-content:center; height:100%;
+    padding:20px; text-align:center; color:var(--muted); font-size:.95rem;
+  }
+  @media (max-width: 600px){
+    #previewBox{height:55vh;}
+  }
+</style>
+</head>
+<body>
+  <div class="card">
+    <h1>🎤 Dal vezérlő</h1>
+    <p class="sub">Válaszd ki, melyik dal menjen — a nézők azonnal látni fogják.</p>
+
+    <label for="songSelect">Dal (lejátszási sorrend)</label>
+    <select id="songSelect"></select>
+
+    <div class="row">
+      <button id="prevBtn">← Előző</button>
+      <button id="nextBtn">Következő →</button>
+    </div>
+
+    <label for="songNum">Dal száma</label>
+    <div class="numrow">
+      <input type="number" id="songNum" min="1" placeholder="pl. 3">
+      <button id="selectNumBtn" class="primary">Kiválaszt</button>
+    </div>
+
+    <div class="status" id="status">Nincs kiválasztott dal</div>
+
+    <div id="previewBox">
+      <iframe id="previewFrame"></iframe>
+      <div id="previewPdf"></div>
+      <div id="previewExternalMsg"></div>
+    </div>
+
+    <div class="qrSection">
+      <p>Oszd meg másokkal — olvassák be a QR-kódot</p>
+      <div id="qrBox"></div>
+      <span id="qrLink"></span>
+    </div>
+  </div>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="firebase-config.js"></script>
+<script src="songs.js"></script>
+<script>
+  // PDF.js — a PDF-et közvetlenül ezen az oldalon rajzoljuk ki, így nincs
+  // külső átirányítás és nem indul el letöltés. Ha a könyvtár valamiért nem
+  // töltődött be, az oldal többi része akkor is működik.
+  const HAS_PDFJS = (typeof pdfjsLib !== 'undefined');
+  if(HAS_PDFJS){
+    pdfjsLib.GlobalWorkerOptions.workerSrc =
+      'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+  }
+
+  firebase.initializeApp(firebaseConfig);
+  const db = firebase.database();
+  const songRef = db.ref('currentSong');
+
+  // QR kód, ami a viewer.html oldalra mutat (feltételezve, hogy ugyanabban
+  // a mappában van, mint ez a controller.html)
+  // A viewer URL-t az aktuális fájl helyéből képezzük: az utolsó útvonal-részt
+  // (a fájlnevet) cseréljük 'viewer.html'-re. Így mindegy, hogy ezt a fájlt
+  // controller.html-nek vagy ControllerM.html-nek hívják.
+  const viewerUrl = window.location.href
+    .split('#')[0].split('?')[0]
+    .replace(/[^/]*$/, 'viewer.html');
+  if(typeof QRCode !== 'undefined'){
+    new QRCode(document.getElementById('qrBox'), {
+      text: viewerUrl,
+      width: 160,
+      height: 160
+    });
+  }
+  const qrLinkEl = document.getElementById('qrLink');
+  qrLinkEl.textContent = viewerUrl;
+
+  const songSelect = document.getElementById('songSelect');
+  const statusEl = document.getElementById('status');
+  const previewBox = document.getElementById('previewBox');
+  const previewFrame = document.getElementById('previewFrame');
+  const previewPdf = document.getElementById('previewPdf');
+  const previewExternalMsg = document.getElementById('previewExternalMsg');
+
+  let renderToken = 0;
+  const pdfCache = {};   // egyszer betoltott PDF-et nem toltunk be ujra
+
+  function loadPdf(url){
+    if(!pdfCache[url]){
+      pdfCache[url] = pdfjsLib.getDocument(url).promise;
+    }
+    return pdfCache[url];
+  }
+
+  async function renderPdf(url, pageFrom, pageTo){
+    const myToken = ++renderToken;
+    previewPdf.innerHTML = '<div class="msg">Betöltés…</div>';
+    try{
+      const pdf = await loadPdf(url);
+      if(myToken !== renderToken) return;
+      previewPdf.innerHTML = '';
+      const first = Math.max(1, pageFrom || 1);
+      const last  = Math.min(pdf.numPages, pageTo || pageFrom || pdf.numPages);
+      const targetWidth = previewPdf.clientWidth || 700;
+      for(let i = first; i <= last; i++){
+        const page = await pdf.getPage(i);
+        if(myToken !== renderToken) return;
+        const base = page.getViewport({ scale: 1 });
+        const viewport = page.getViewport({ scale: (targetWidth / base.width) * 2 });
+        const canvas = document.createElement('canvas');
+        canvas.width = viewport.width;
+        canvas.height = viewport.height;
+        previewPdf.appendChild(canvas);
+        await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
+        if(myToken !== renderToken) return;
+      }
+    } catch(e){
+      if(myToken !== renderToken) return;
+      previewPdf.innerHTML = '<div class="msg">A PDF-et nem sikerült betölteni.</div>';
+      console.error(e);
+    }
+  }
+
+  let currentIndex = -1;
+
+  SONGS.forEach((s, i) => {
+    const opt = document.createElement('option');
+    opt.value = i;
+    opt.textContent = `${s.id}. ${s.title}`;
+    songSelect.appendChild(opt);
+  });
+
+  function selectSong(index){
+    if(index < 0 || index >= SONGS.length) return;
+    currentIndex = index;
+    songSelect.value = index;
+    const song = SONGS[index];
+    songRef.set({
+      index: index,
+      id: song.id,
+      title: song.title,
+      type: song.type,
+      url: song.url,
+      pageFrom: song.pageFrom || null,
+      pageTo: song.pageTo || null,
+      updatedAt: Date.now()
+    });
+    statusEl.innerHTML = `Most szól: <b>${song.title}</b>`;
+    updateMediaMetadata(song);
+
+    // Beépített előnézet — csak a saját (github.io-n hostolt) tartalmakat
+    // ágyazzuk be, mert külső oldalaknál (reklámok, videók) nem
+    // kontrollálható, mit csinál az adott oldal egy iframe-ben.
+    previewBox.style.display = 'block';
+    const absoluteUrl = new URL(song.url, window.location.href).href;
+    const isExternal = /^https?:\/\//i.test(song.url) && !absoluteUrl.startsWith(window.location.origin);
+
+    if(isExternal){
+      renderToken++;
+      previewFrame.style.display = 'none';
+      previewFrame.src = 'about:blank';
+      previewPdf.style.display = 'none';
+      previewPdf.innerHTML = '';
+      previewExternalMsg.style.display = 'flex';
+      previewExternalMsg.textContent = 'Külső oldal — nincs beépített előnézet (a nézők a viewer.html oldalon látni fogják).';
+    } else if(song.type === 'pdf' && HAS_PDFJS){
+      previewExternalMsg.style.display = 'none';
+      previewFrame.style.display = 'none';
+      previewFrame.src = 'about:blank';
+      previewPdf.style.display = 'block';
+      previewPdf.scrollTop = 0;
+      renderPdf(absoluteUrl, song.pageFrom, song.pageTo);
+    } else {
+      renderToken++;
+      previewExternalMsg.style.display = 'none';
+      previewPdf.style.display = 'none';
+      previewPdf.innerHTML = '';
+      previewFrame.style.display = 'block';
+      previewFrame.src = song.url;
+    }
+  }
+
+  songSelect.addEventListener('change', () => selectSong(parseInt(songSelect.value, 10)));
+
+  document.getElementById('prevBtn').addEventListener('click', () => {
+    selectSong(Math.max(0, currentIndex - 1));
+  });
+  document.getElementById('nextBtn').addEventListener('click', () => {
+    selectSong(Math.min(SONGS.length - 1, currentIndex + 1));
+  });
+
+  document.getElementById('selectNumBtn').addEventListener('click', () => {
+    const num = parseInt(document.getElementById('songNum').value, 10);
+    const idx = SONGS.findIndex(s => s.id === num);
+    if(idx === -1){
+      alert('Nincs ilyen számú dal.');
+      return;
+    }
+    selectSong(idx);
+  });
+
+  // ==========================================================================
+  //  Bluetooth fülhallgató / headset gombok (előző / következő dal)
+  // --------------------------------------------------------------------------
+  //  A fejhallgató "előző/következő szám" gombjait a Media Session API kapja
+  //  el, és a meglévő Előző/Következő gombokra köti — így pontosan úgy lapoz,
+  //  mintha kézzel nyomnád meg. A böngésző viszont csak akkor küldi ide ezeket
+  //  a gombokat, ha az oldalon FUT valamilyen média, ezért a háttérben egy
+  //  néma, ismétlődő hangot játszunk le (adat-URI-ként beágyazva, nincs külön
+  //  fájl a repóban).
+  // ==========================================================================
+  const prevBtn = document.getElementById('prevBtn');
+  const nextBtn = document.getElementById('nextBtn');
+
+  // 1 másodperces néma MP3, base64-ként beágyazva
+  const silentAudio = new Audio('data:audio/mp3;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjYwLjE2LjEwMAAAAAAAAAAAAAAA/+M4wAAAAAAAAAAAAEluZm8AAAAPAAAAEAAABVgANTU1NTU1Q0NDQ0NDUFBQUFBQXl5eXl5ea2tra2tra3l5eXl5eYaGhoaGhpSUlJSUlKGhoaGhoaGvr6+vr6+8vLy8vLzKysrKysrX19fX19fX5eXl5eXl8vLy8vLy////////AAAAAExhdmM2MC4zMQAAAAAAAAAAAAAAACQCgAAAAAAAAAVYCAAeqQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA/+MYxAAAAANIAAAAAExBTUUzLjEwMFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVMQU1FMy4xMDBVVVVVVVVVVVVV/+MYxDsAAANIAAAAAFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVMQU1FMy4xMDBVVVVVVVVVVVVV/+MYxHYAAANIAAAAAFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVMQU1FMy4xMDBVVVVVVVVVVVVV/+MYxLEAAANIAAAAAFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVMQU1FMy4xMDBVVVVVVVVVVVVV/+MYxMQAAANIAAAAAFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVMQU1FMy4xMDBVVVVVVVVVVVVV/+MYxMQAAANIAAAAAFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVMQU1FMy4xMDBVVVVVVVVVVVVV/+MYxMQAAANIAAAAAFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVMQU1FMy4xMDBVVVVVVVVVVVVV/+MYxMQAAANIAAAAAFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVMQU1FMy4xMDBVVVVVVVVVVVVV/+MYxMQAAANIAAAAAFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVMQU1FMy4xMDBVVVVVVVVVVVVV/+MYxMQAAANIAAAAAFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVMQU1FMy4xMDBVVVVVVVVVVVVV/+MYxMQAAANIAAAAAFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVMQU1FMy4xMDBVVVVVVVVVVVVV/+MYxMQAAANIAAAAAFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVMQU1FMy4xMDBVVVVVVVVVVVVV/+MYxMQAAANIAAAAAFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV/+MYxMQAAANIAAAAAFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV/+MYxMQAAANIAAAAAFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV/+MYxMQAAANIAAAAAFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV');
+  silentAudio.loop = true;
+
+  // --- Az éppen mutatott előnézet görgetése -------------------------------
+  //  Elsősorban a PDF-előnézetet görgeti; ha épp (saját, same-origin) HTML dal
+  //  megy iframe-ben, azt is megpróbálja. Külső oldalt nem tud görgetni.
+  function getScrollTarget(){
+    if(previewPdf.style.display === 'block')   return { kind:'el',  el:previewPdf };
+    if(previewFrame.style.display === 'block'){
+      try {
+        const w = previewFrame.contentWindow;
+        void w.document;                 // cross-originnál itt kivételt dob
+        return { kind:'win', win:w };
+      } catch(e){ return null; }
+    }
+    return null;
+  }
+
+  const SCROLL_RATIO = 0.85;             // a látható magasság ~85%-a, kis átfedéssel
+
+  function scrollPreviewDown(){
+    const t = getScrollTarget();
+    if(!t) return;
+    // Egyszerűen lefelé görget; az aljánál a scrollBy magától megáll,
+    // nem ugrik vissza a tetejére.
+    if(t.kind === 'el') t.el.scrollBy({ top: t.el.clientHeight * SCROLL_RATIO, behavior:'smooth' });
+    else                t.win.scrollBy({ top: t.win.innerHeight * SCROLL_RATIO, behavior:'smooth' });
+  }
+
+  function scrollPreviewUp(){
+    const t = getScrollTarget();
+    if(!t) return;
+    if(t.kind === 'el') t.el.scrollBy({ top: -t.el.clientHeight * SCROLL_RATIO, behavior:'smooth' });
+    else                t.win.scrollBy({ top: -t.win.innerHeight * SCROLL_RATIO, behavior:'smooth' });
+  }
+
+  let mediaReady = false;
+
+  function enableHeadsetControls(){
+    if(mediaReady || !('mediaSession' in navigator)) return;
+    silentAudio.play().then(() => {
+      mediaReady = true;
+      navigator.mediaSession.playbackState = 'playing';
+      // A tényleges lapozó gombok:
+      navigator.mediaSession.setActionHandler('previoustrack', () => prevBtn.click());
+      navigator.mediaSession.setActionHandler('nexttrack',     () => nextBtn.click());
+      // Play ÉS pause is lefelé görget — így a fülesen bármelyik egyszeri
+      // koppintás (ami play/pause-t vált) a PDF-et görgeti. Közben a néma
+      // hangot NEM állítjuk le, hogy a session (és vele a next/prev) éljen.
+      navigator.mediaSession.setActionHandler('play',  () => {
+        silentAudio.play();
+        navigator.mediaSession.playbackState = 'playing';
+        scrollPreviewDown();
+      });
+      navigator.mediaSession.setActionHandler('pause', () => {
+        navigator.mediaSession.playbackState = 'playing';
+        scrollPreviewDown();
+      });
+      // Bónusz: ha a fülesen van előre/hátra (FF/RW) gomb, az is görget
+      navigator.mediaSession.setActionHandler('seekforward',  () => scrollPreviewDown());
+      navigator.mediaSession.setActionHandler('seekbackward', () => scrollPreviewUp());
+      if(currentIndex >= 0) updateMediaMetadata(SONGS[currentIndex]);
+    }).catch(err => {
+      console.log('A headset-vezérlés nem indult el:', err);
+    });
+  }
+
+  // Autoplay-tiltás miatt egyszeri felhasználói koppintás kell az indításhoz.
+  // Bármelyik érintés / kattintás aktiválja (a select, a gombok is jók).
+  document.body.addEventListener('click',      enableHeadsetControls, { once:true });
+  document.body.addEventListener('touchstart', enableHeadsetControls, { once:true });
+
+  // A zárolt képernyőn / a csatlakoztatott eszközön a most szóló dal címét mutatja
+  function updateMediaMetadata(song){
+    if(!mediaReady || !song || !('mediaSession' in navigator)) return;
+    navigator.mediaSession.metadata = new MediaMetadata({
+      title:  song.title,
+      artist: 'Mag Ferenc',
+      album:  `${song.id}. dal`
+    });
+  }
+</script>
+</body>
+</html>
