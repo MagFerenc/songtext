@@ -92,6 +92,13 @@
       <button id="nextBtn">Következő →</button>
     </div>
 
+    <div id="headsetBox" style="margin-top:14px; padding-top:14px; border-top:1px solid #374151;">
+      <button id="headsetToggle" class="primary" style="width:100%;">🎧 Fülhallgató-vezérlés bekapcsolása</button>
+      <div id="headsetStatus" style="margin-top:8px; font-size:.85rem; color:var(--muted);">
+        Állapot: <b id="headsetState">kikapcsolva</b>
+      </div>
+    </div>
+
     <label for="songNum">Dal száma</label>
     <div class="numrow">
       <input type="number" id="songNum" min="1" placeholder="pl. 3">
@@ -326,40 +333,77 @@
   }
 
   let mediaReady = false;
+  const headsetToggle  = document.getElementById('headsetToggle');
+  const headsetStateEl = document.getElementById('headsetState');
+
+  function setHeadsetState(txt, color){
+    headsetStateEl.textContent = txt;
+    headsetStateEl.style.color = color || 'var(--muted)';
+  }
+  // Ha bejön egy parancs a fülesről, villantsuk ki — így látszik, mi érkezett
+  let flashTimer = null;
+  function flashHeadset(cmd){
+    setHeadsetState('✔ parancs: ' + cmd, 'var(--accent)');
+    clearTimeout(flashTimer);
+    flashTimer = setTimeout(() => setHeadsetState('AKTÍV – teszteld a gombokat', 'var(--accent)'), 1500);
+  }
+
+  // A play/pause gomb koppintás-számlálása (ez a füles egyetlen elkapható
+  // gombja, ha nincs külön next/prev):
+  //   1 koppintás  = görgetés lefelé
+  //   2 gyors kopp = következő dal
+  //   3 gyors kopp = előző dal
+  let pressCount = 0, pressTimer = null;
+  const PRESS_WINDOW = 400;               // ennyi ms-en belül számít "sorozatnak"
+  function onHeadsetButton(){
+    silentAudio.play();                   // a session maradjon élő
+    if('mediaSession' in navigator) navigator.mediaSession.playbackState = 'playing';
+    pressCount++;
+    if(pressCount === 1){                  // az első koppintásra AZONNAL görgetünk
+      flashHeadset('görgetés le');
+      scrollPreviewDown();
+    }
+    clearTimeout(pressTimer);
+    pressTimer = setTimeout(() => {
+      if(pressCount === 2){ flashHeadset('következő'); nextBtn.click(); }
+      else if(pressCount >= 3){ flashHeadset('előző'); prevBtn.click(); }
+      pressCount = 0;
+    }, PRESS_WINDOW);
+  }
 
   function enableHeadsetControls(){
-    if(mediaReady || !('mediaSession' in navigator)) return;
+    if(!('mediaSession' in navigator)){
+      setHeadsetState('a böngésző nem támogatja', '#f59e0b');
+      return;
+    }
+    silentAudio.volume = 1;                 // a tartalom néma, de ne legyen elnémítva
     silentAudio.play().then(() => {
       mediaReady = true;
       navigator.mediaSession.playbackState = 'playing';
-      // A tényleges lapozó gombok:
-      navigator.mediaSession.setActionHandler('previoustrack', () => prevBtn.click());
-      navigator.mediaSession.setActionHandler('nexttrack',     () => nextBtn.click());
-      // Play ÉS pause is lefelé görget — így a fülesen bármelyik egyszeri
-      // koppintás (ami play/pause-t vált) a PDF-et görgeti. Közben a néma
-      // hangot NEM állítjuk le, hogy a session (és vele a next/prev) éljen.
-      navigator.mediaSession.setActionHandler('play',  () => {
-        silentAudio.play();
-        navigator.mediaSession.playbackState = 'playing';
-        scrollPreviewDown();
+      navigator.mediaSession.metadata = new MediaMetadata({
+        title: 'Dal vezérlő', artist: 'Mag Ferenc'
       });
-      navigator.mediaSession.setActionHandler('pause', () => {
-        navigator.mediaSession.playbackState = 'playing';
-        scrollPreviewDown();
-      });
-      // Bónusz: ha a fülesen van előre/hátra (FF/RW) gomb, az is görget
-      navigator.mediaSession.setActionHandler('seekforward',  () => scrollPreviewDown());
-      navigator.mediaSession.setActionHandler('seekbackward', () => scrollPreviewUp());
+      // A play/pause gomb: koppintás-számlálással görget / vált (lásd fent)
+      navigator.mediaSession.setActionHandler('play',  onHeadsetButton);
+      navigator.mediaSession.setActionHandler('pause', onHeadsetButton);
+      // Ha a fülesen a hangerő HOSSZÚ nyomása dalt vált, az next/prev
+      // parancsként érkezik — ezt is elkapjuk (azonnali váltás):
+      navigator.mediaSession.setActionHandler('previoustrack', () => { flashHeadset('előző');    prevBtn.click(); });
+      navigator.mediaSession.setActionHandler('nexttrack',     () => { flashHeadset('következő'); nextBtn.click(); });
+      // Ha van külön előre/hátra (FF/RW) gomb, az görgessen:
+      navigator.mediaSession.setActionHandler('seekforward',  () => { flashHeadset('görgetés le'); scrollPreviewDown(); });
+      navigator.mediaSession.setActionHandler('seekbackward', () => { flashHeadset('görgetés fel'); scrollPreviewUp(); });
       if(currentIndex >= 0) updateMediaMetadata(SONGS[currentIndex]);
+      setHeadsetState('AKTÍV – teszteld a gombokat', 'var(--accent)');
+      headsetToggle.textContent = '🎧 Vezérlés újraindítása';
     }).catch(err => {
-      console.log('A headset-vezérlés nem indult el:', err);
+      mediaReady = false;
+      setHeadsetState('nem indult el (' + ((err && err.name) || err) + ') – nyomd meg még egyszer', '#f59e0b');
     });
   }
 
-  // Autoplay-tiltás miatt egyszeri felhasználói koppintás kell az indításhoz.
-  // Bármelyik érintés / kattintás aktiválja (a select, a gombok is jók).
-  document.body.addEventListener('click',      enableHeadsetControls, { once:true });
-  document.body.addEventListener('touchstart', enableHeadsetControls, { once:true });
+  // Kézi, egyértelmű aktiválás gombbal (ez számít biztos felhasználói gesztusnak)
+  headsetToggle.addEventListener('click', enableHeadsetControls);
 
   // A zárolt képernyőn / a csatlakoztatott eszközön a most szóló dal címét mutatja
   function updateMediaMetadata(song){
