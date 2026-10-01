@@ -371,14 +371,36 @@
     }, PRESS_WINDOW);
   }
 
+  // Hangfókusz tartása: folyamatos, gyakorlatilag néma Web Audio jel.
+  // Androidon (főleg MIUI-n) ez megbízhatóbban "lefoglalja" a média-gombokat,
+  // mint egy ismétlődő néma hangfájl (annál a loop határán elengedi a rendszer).
+  let audioCtx = null;
+  function startKeepAlive(){
+    if(!audioCtx){
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if(!AC) return Promise.reject(new Error('NoWebAudio'));
+      audioCtx = new AC();
+      const osc  = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      gain.gain.value = 0.0008;           // ~ -62 dB: nem hallható, de nem is nulla
+      osc.frequency.value = 50;           // mély
+      osc.type = 'sine';
+      osc.connect(gain).connect(audioCtx.destination);
+      osc.start();
+    }
+    return audioCtx.resume();             // felhasználói gesztus után indul
+  }
+
   function enableHeadsetControls(){
     if(!('mediaSession' in navigator)){
       setHeadsetState('a böngésző nem támogatja', '#f59e0b');
       return;
     }
-    silentAudio.volume = 1;                 // a tartalom néma, de ne legyen elnémítva
-    silentAudio.play().then(() => {
+    silentAudio.volume = 1;
+    silentAudio.play().catch(()=>{});       // másodlagos; a lényeg a Web Audio jel
+    startKeepAlive().then(() => {
       mediaReady = true;
+      try { navigator.mediaSession.setPositionState({ duration: 3600, position: 0, playbackRate: 1 }); } catch(e){}
       navigator.mediaSession.playbackState = 'playing';
       navigator.mediaSession.metadata = new MediaMetadata({
         title: 'Dal vezérlő', artist: 'Mag Ferenc'
@@ -404,6 +426,28 @@
 
   // Kézi, egyértelmű aktiválás gombbal (ez számít biztos felhasználói gesztusnak)
   headsetToggle.addEventListener('click', enableHeadsetControls);
+
+  // --- Billentyű / Bluetooth lapozópedál (biztos tartalék) ------------------
+  //  Ez NEM igényel aktiválást és semmi hangtrükköt — a böngésző mindig megkapja.
+  //  Egy BT lapozópedál (AirTurn, PageFlip, Donner...) ilyen billentyűket küld.
+  //    lefelé nyíl / szóköz / PageDown  → görgetés lefelé
+  //    felfelé nyíl / PageUp            → görgetés felfelé
+  //    jobbra nyíl                      → következő dal
+  //    balra nyíl                       → előző dal
+  document.addEventListener('keydown', (e) => {
+    const t = e.target;
+    if(t && (t.tagName === 'INPUT' || t.tagName === 'SELECT' || t.tagName === 'TEXTAREA')) return;
+    switch(e.key){
+      case 'ArrowDown': case ' ': case 'Spacebar': case 'PageDown':
+        e.preventDefault(); scrollPreviewDown(); break;
+      case 'ArrowUp': case 'PageUp':
+        e.preventDefault(); scrollPreviewUp(); break;
+      case 'ArrowRight':
+        e.preventDefault(); nextBtn.click(); break;
+      case 'ArrowLeft':
+        e.preventDefault(); prevBtn.click(); break;
+    }
+  });
 
   // A zárolt képernyőn / a csatlakoztatott eszközön a most szóló dal címét mutatja
   function updateMediaMetadata(song){
