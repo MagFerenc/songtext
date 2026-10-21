@@ -24,7 +24,7 @@
 // A mappanevek kis/nagybetű-érzékenyek.
 // ============================================================
 const SONGS = [
-  { id:   1, title: "Ujra itt van plusz",                            type: "pdf", url: "Dalok/Ujra-itt-van-plusz.pdf" },
+  // { id:   1, title: "Ujra itt van plusz",                            type: "pdf", url: "Dalok/Ujra-itt-van-plusz.pdf" },
   { id:   3, title: "Seemann",                                       type: "pdf", url: "Dalok/Seemann_n.pdf" },
   { id:   4, title: "Country Road",                                  type: "pdf", url: "Dalok/Country-Road.pdf" },
   { id: 201, title: "Mi kéne még",                                   type: "pdf", url: "Dalok/200-Pop/201-Mi-kene-meg.pdf" },
@@ -32,6 +32,11 @@ const SONGS = [
   { id: 203, title: "Szép nyári nap",                                type: "pdf", url: "Dalok/200-Pop/203-Szep-nyari-nap.pdf" },
   { id: 401, title: "Pedro kocsmája",                                type: "pdf", url: "Dalok/400-mulatos/401-Pedro-kocsmaja.pdf" },
   { id: 402, title: "Love In Portofino",                             type: "pdf", url: "Dalok/400-mulatos/402-Love-In-Portofino.pdf" },
+  { id: 403, title: "Újra itt van a nagy csapat",                    type: "pdf", url: "Dalok/400-mulatos/Ujra-itt-van.pdf", pageFrom: 1, pageTo: 1 },
+  { id: 404, title: "Schneider Fáni",                                type: "pdf", url: "Dalok/400-mulatos/Ujra-itt-van.pdf", pageFrom: 2, pageTo: 2 },
+  { id: 405, title: "Rozamunda (Sej, haj, Rozi)",                    type: "pdf", url: "Dalok/400-mulatos/Ujra-itt-van.pdf", pageFrom: 3, pageTo: 3 },
+  { id: 406, title: "Hétre ma várom a Nemzetinél",                   type: "pdf", url: "Dalok/400-mulatos/Ujra-itt-van.pdf", pageFrom: 4, pageTo: 4 },
+  { id: 407, title: "János legyen fenn a János-hegyen",              type: "pdf", url: "Dalok//400-mulatosUjra-itt-van.pdf", pageFrom: 5, pageTo: 5 },
   { id: 801, title: "Örökké tart",                                   type: "pdf", url: "Dalok/pittnerf/Szövegek_összefuzött.pdf", pageFrom: 1, pageTo: 2 },
   { id: 802, title: "Szerelem első vérig",                           type: "pdf", url: "Dalok/pittnerf/Szövegek_összefuzött.pdf", pageFrom: 3 },
   { id: 803, title: "Utcabál - Hungária",                            type: "pdf", url: "Dalok/pittnerf/Szövegek_összefuzött.pdf", pageFrom: 4 },
