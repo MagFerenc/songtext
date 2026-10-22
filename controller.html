@@ -219,11 +219,20 @@
 
   let currentIndex = -1;
 
+  // A legördülő lista kategóriánként csoportosítva (categories.js alapján)
+  let currentGroup = null, currentGroupName = null;
   SONGS.forEach((s, i) => {
+    const cat = categoryOf(s) || 'Egyéb';
+    if(cat !== currentGroupName){
+      currentGroup = document.createElement('optgroup');
+      currentGroup.label = '📁 ' + cat;
+      songSelect.appendChild(currentGroup);
+      currentGroupName = cat;
+    }
     const opt = document.createElement('option');
     opt.value = i;
     opt.textContent = `${s.id}. ${s.title}`;
-    songSelect.appendChild(opt);
+    currentGroup.appendChild(opt);
   });
 
   function selectSong(index){
