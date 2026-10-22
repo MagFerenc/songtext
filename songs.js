@@ -37,6 +37,7 @@ const SONGS = [
   { id: 405, title: "Rozamunda (Sej, haj, Rozi)",                    type: "pdf", url: "Dalok/400-mulatos/Ujra_itt_van.pdf", pageFrom: 3, pageTo: 3 },
   { id: 406, title: "Hétre ma várom a Nemzetinél",                   type: "pdf", url: "Dalok/400-mulatos/Ujra_itt_van.pdf", pageFrom: 4, pageTo: 4 },
   { id: 407, title: "János legyen fenn a János-hegyen",              type: "pdf", url: "Dalok/400-mulatos/Ujra_itt_van.pdf", pageFrom: 5, pageTo: 5 },
+  { id: 408, title: "Hajmási Péter - Csárdáskirálynő",              type: "pdf", url: "Dalok/400-mulatos/408-Hajmasi-Peter.pdf" },
   // --- Cigány dalok (egy összefűzött PDF) ---
   { id: 601, title: "Szegény vagyok",                                type: "pdf", url: "Dalok/600-cigany/601-609_osszefuzott.pdf", pageFrom: 1 },
   { id: 602, title: "Erdő szélén",                                   type: "pdf", url: "Dalok/600-cigany/601-609_osszefuzott.pdf", pageFrom: 2 },
