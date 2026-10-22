@@ -33,6 +33,7 @@ const SONGS = [
   { id: 204, title: "Jó az álmodozás - Mount Blanc",                type: "pdf", url: "Dalok/200-Pop/204-Jo-az-almodozas.pdf" },
   { id: 205, title: "Midőn Havannában - A galamb (La Paloma)",      type: "pdf", url: "Dalok/200-Pop/205-Midon-Havannaban-La-Paloma.pdf" },
   { id: 206, title: "A távollét - Szécsi Pál",                      type: "pdf", url: "Dalok/200-Pop/206-A-tavollet.pdf" },
+  { id: 207, title: "Gyöngéden ölelj át - Nino Rota",               type: "pdf", url: "Dalok/200-Pop/207-Gyongeden-olelj-at.pdf" },
   { id: 301, title: "Seemann",                                       type: "pdf", url: "Dalok/300-nemzetkozi/301-Seemann.pdf" },
   { id: 302, title: "Country Road",                                  type: "pdf", url: "Dalok/300-nemzetkozi/302-Country-Road.pdf" },
   { id: 401, title: "Mulatós refrének (A jányok, a jányok...)",     type: "pdf", url: "Dalok/400-mulatos/401-Mulatos-refrenek.pdf" },
