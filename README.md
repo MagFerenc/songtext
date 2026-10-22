@@ -1,7 +1,6 @@
 # Dal kijelző — linkek
 
 - 🎛️ **[Dal vezérlő](https://magferenc.github.io/songtext/controller.html)** — itt választod ki a dalt
-- 📱 **[Dal vezérlő (mobil)](https://magferenc.github.io/songtext/controllerm.html)**
 - 📄 **[Viewer — kijelző](https://magferenc.github.io/songtext/viewer.html)** — ezt nyisd meg a kijelzőn / tableten
 
 ---
