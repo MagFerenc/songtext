@@ -67,7 +67,18 @@
     text-align:center;
   }
   .qrSection p{font-size:.95rem; color:var(--text); font-weight:600; margin:0 0 12px;}
-  #qrBox{background:#fff; padding:10px; border-radius:12px; display:inline-block;}
+  #qrBox{background:#fff; padding:10px; border-radius:12px; display:inline-block; cursor:pointer;}
+  /* Nagyított QR — a QR-kódra kattintva jelenik meg, újabb kattintásra eltűnik */
+  #bigQrOverlay{
+    display:none; position:fixed; inset:0; z-index:100;
+    background:rgba(17,24,39,.94); cursor:pointer;
+    flex-direction:column; align-items:center; justify-content:center; gap:14px;
+  }
+  #bigQrOverlay.open{display:flex;}
+  #bigQr{background:#fff; padding:16px; border-radius:16px; line-height:0;}
+  #bigQr img, #bigQr canvas{display:block; width:min(80vw, 70vh); height:min(80vw, 70vh);}
+  #bigQrOverlay p{margin:0; font-size:1rem; color:var(--text); font-weight:600;}
+  #bigQrOverlay small{color:var(--muted); font-size:.8rem;}
   #qrLink{display:block; margin-top:8px; font-size:.75rem; color:#93c5fd; word-break:break-all;}
   #previewBox{
     margin-top:16px; border-radius:10px; overflow:hidden; border:1px solid #374151;
@@ -120,6 +131,7 @@
 
     <div class="qrSection">
       <p>Oszd meg másokkal — olvassák be a QR-kódot</p>
+      <div style="font-size:.75rem; color:var(--muted); margin:-6px 0 10px;">Kattints a QR-kódra a nagyításhoz</div>
       <div id="qrBox"></div>
       <span id="qrLink"></span>
     </div>
@@ -130,6 +142,12 @@
         Állapot: <b id="headsetState">kikapcsolva</b>
       </div>
     </div>
+  </div>
+
+  <div id="bigQrOverlay">
+    <div id="bigQr"></div>
+    <p>Olvasd be a QR-kódot, és add tovább!</p>
+    <small>Kattints a bezáráshoz</small>
   </div>
 
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
@@ -167,7 +185,17 @@
       width: 160,
       height: 160
     });
+    // Nagy QR a nagyított nézethez
+    new QRCode(document.getElementById('bigQr'), {
+      text: viewerUrl,
+      width: 512,
+      height: 512
+    });
   }
+  // QR-re kattintva nagyban, középen jelenik meg; újabb kattintásra bezárul
+  const bigQrOverlay = document.getElementById('bigQrOverlay');
+  document.getElementById('qrBox').addEventListener('click', () => bigQrOverlay.classList.add('open'));
+  bigQrOverlay.addEventListener('click', () => bigQrOverlay.classList.remove('open'));
   const qrLinkEl = document.getElementById('qrLink');
   qrLinkEl.textContent = viewerUrl;
 
