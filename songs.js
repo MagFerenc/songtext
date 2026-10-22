@@ -45,6 +45,7 @@ const SONGS = [
   { id: 502, title: "Most múlik pontosan - Csík zenekar",           type: "pdf", url: "Dalok/500-nepi/502-Most-mulik-pontosan.pdf" },
   { id: 503, title: "Ha kimegyek a doberdói nagy hegyre",           type: "pdf", url: "Dalok/500-nepi/503-Ha-kimegyek-a-doberdoi-nagy-hegyre.pdf" },
   { id: 504, title: "Elindultam szép hazámból",                     type: "pdf", url: "Dalok/500-nepi/504-Elindultam-szep-hazambol.pdf" },
+  { id: 505, title: "Gyergyón innen, vagy még azon is túl",         type: "pdf", url: "Dalok/500-nepi/505-Gyergyon-innen-vagy-meg-azon-is-tul.pdf" },
   // --- Cigány dalok (egy összefűzött PDF) ---
   { id: 601, title: "Szegény vagyok",                                type: "pdf", url: "Dalok/600-cigany/601-609_osszefuzott.pdf", pageFrom: 1 },
   { id: 602, title: "Erdő szélén",                                   type: "pdf", url: "Dalok/600-cigany/601-609_osszefuzott.pdf", pageFrom: 2 },
