@@ -30,7 +30,11 @@
     background:#111827; color:var(--text); font-size:1rem;
   }
   .row{display:flex; gap:10px; margin-top:10px;}
-  .row > *{flex:1;}
+  .row > *{flex:1; min-width:0;}
+  .btnHint{
+    display:block; margin-top:3px; font-size:.72rem; font-weight:400; color:var(--muted);
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  }
   button{
     cursor:pointer; border:none; border-radius:8px; padding:12px 14px;
     font-size:1rem; font-weight:600; background:#374151; color:var(--text);
@@ -87,8 +91,8 @@
     <select id="songSelect" style="margin-top:4px;"></select>
 
     <div class="row">
-      <button id="prevBtn">← Előző</button>
-      <button id="nextBtn">Következő →</button>
+      <button id="prevBtn">← Előző<span class="btnHint" id="prevHint"></span></button>
+      <button id="nextBtn">Következő →<span class="btnHint" id="nextHint"></span></button>
     </div>
 
     <div class="numrow" style="align-items:center; margin-top:12px;">
@@ -228,6 +232,7 @@
       updatedAt: Date.now()
     });
     statusEl.innerHTML = `Most szól: <b>${song.title}</b>`;
+    updateNavHints();
     updateMediaMetadata(song);
 
     // Beépített előnézet — csak a saját (github.io-n hostolt) tartalmakat
@@ -261,6 +266,22 @@
       previewFrame.src = song.url;
     }
   }
+
+  // A gombok alatt kis betűvel: melyik dal jön előző / következő gombra
+  const prevHint = document.getElementById('prevHint');
+  const nextHint = document.getElementById('nextHint');
+  function songLabel(i){
+    return (i >= 0 && i < SONGS.length) ? `${SONGS[i].id}. ${SONGS[i].title}` : '—';
+  }
+  function updateNavHints(){
+    const p = currentIndex > 0 ? currentIndex - 1 : -1;
+    const n = currentIndex + 1;
+    prevHint.textContent = songLabel(p);
+    nextHint.textContent = songLabel(n);
+    prevHint.title = prevHint.textContent;
+    nextHint.title = nextHint.textContent;
+  }
+  updateNavHints();
 
   songSelect.addEventListener('change', () => selectSong(parseInt(songSelect.value, 10)));
 
