@@ -34,6 +34,7 @@ const SONGS = [
   { id: 155, title: "Évszakok - Balázs Fecó",                       type: "pdf", url: "Dalok/150-rock/155-Evszakok.pdf" },
   { id: 156, title: "Légy ma éjjel a társam - Fenyő Miklós",        type: "pdf", url: "Dalok/150-rock/156-Legy-ma-ejjel-a-tarsam.pdf" },
   { id: 157, title: "Közeli helyeken - Bikini",                     type: "pdf", url: "Dalok/150-rock/157-Kozeli-helyeken.pdf" },
+  { id: 158, title: "Erdő közepében - Republic",                    type: "pdf", url: "Dalok/150-rock/158-Erdo-kozepeben.pdf" },
   { id: 201, title: "Mi kéne még",                                   type: "pdf", url: "Dalok/200-Pop/201-Mi-kene-meg.pdf" },
   { id: 202, title: "Mindig kell egy barát",                         type: "pdf", url: "Dalok/200-Pop/202-Mindig-kell-egy-barat.pdf" },
   { id: 203, title: "Szép nyári nap",                                type: "pdf", url: "Dalok/200-Pop/203-Szep-nyari-nap.pdf" },
