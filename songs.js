@@ -38,6 +38,7 @@ const SONGS = [
   { id: 209, title: "Millió rózsaszál - Csongrádi Kata",            type: "pdf", url: "Dalok/200-Pop/209-Millio-rozsaszal.pdf" },
   { id: 210, title: "Az első villamos - Fonográf",                  type: "pdf", url: "Dalok/200-Pop/210-Az-elso-villamos.pdf" },
   { id: 211, title: "Húsz év múlva - Komár László",                 type: "pdf", url: "Dalok/200-Pop/211-Husz-ev-mulva.pdf" },
+  { id: 212, title: "Azok a szép napok (Those were the days)",      type: "pdf", url: "Dalok/200-Pop/212-Azok-a-szep-napok.pdf" },
   { id: 301, title: "Seemann",                                       type: "pdf", url: "Dalok/300-nemzetkozi/301-Seemann.pdf" },
   { id: 302, title: "Country Road",                                  type: "pdf", url: "Dalok/300-nemzetkozi/302-Country-Road.pdf" },
   { id: 401, title: "Mulatós refrének (A jányok, a jányok...)",     type: "pdf", url: "Dalok/400-mulatos/401-Mulatos-refrenek.pdf" },
