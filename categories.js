@@ -11,7 +11,8 @@
 // FIGYELEM: minden sor végén kell vessző, az utolsó után nem!
 // ============================================================
 const CATEGORIES = [
-  { from: 100, to: 199, name: "Szülinap" },
+  { from: 100, to: 149, name: "Szülinap" },
+  { from: 150, to: 199, name: "Rock" },
   { from: 200, to: 299, name: "Pop" },
   { from: 300, to: 399, name: "Nemzetközi" },
   { from: 400, to: 499, name: "Mulatós" },
