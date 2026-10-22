@@ -42,3 +42,8 @@ Fél-egy perc múlva az új dal megjelenik a vezérlő oldal legördülő listá
 ⚠️ Figyelj a vesszőkre és a kapcsos zárójelekre — ha egy vessző vagy zárójel
 hiányzik, a teljes oldal elromolhat. Legbiztosabb, ha egy meglévő sort
 másolsz, és abban írod át a szöveget.
+
+## Kategóriák (a vezérlő jobb felső sarkában)
+
+A `categories.js` fájlban van, melyik dalszám-tartomány melyik kategória
+(pl. 100–199 = Szülinap). Ugyanúgy szerkeszthető, mint a `songs.js`.

@@ -138,6 +138,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script src="firebase-config.js"></script>
 <script src="songs.js"></script>
+<script src="categories.js"></script>
 <script>
   // PDF.js — a PDF-et közvetlenül ezen az oldalon rajzoljuk ki, így nincs
   // külső átirányítás és nem indul el letöltés. Ha a könyvtár valamiért nem
@@ -278,25 +279,12 @@
   }
 
   // Jobb felül: melyik mappában (kategóriában) van az aktuális dal
-  const CATEGORY_NAMES = {
-    '100-szulinap':   'Szülinap',
-    '200-pop':        'Pop',
-    '300-nemzetkozi': 'Nemzetközi',
-    '400-mulatos':    'Mulatós',
-    '500-nepi':       'Népi',
-    '600-cigany':     'Cigány',
-    '700-tanc':       'Tánc',
-    '800-bar-bossa':  'Bár / Bossa',
-    'pittnerf':       'Pittner F.'
-  };
   const categoryBadge = document.getElementById('categoryBadge');
+  // A tartományokat a categories.js fájlban lehet szerkeszteni
   function categoryOf(song){
-    const m = /^Dalok\/([^/]+)\//i.exec(song.url || '');
-    if(!m) return '';
-    const folder = m[1];
-    if(CATEGORY_NAMES[folder.toLowerCase()]) return CATEGORY_NAMES[folder.toLowerCase()];
-    const name = folder.replace(/^\d+[-_ ]*/, '').replace(/[-_]+/g, ' ');
-    return name.charAt(0).toUpperCase() + name.slice(1);
+    if(typeof CATEGORIES === 'undefined') return '';
+    const c = CATEGORIES.find(c => song.id >= c.from && song.id <= c.to);
+    return c ? c.name : '';
   }
   function updateCategory(song){
     const c = categoryOf(song);
