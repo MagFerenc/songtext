@@ -26,6 +26,7 @@
 const SONGS = [
   // { id:   1, title: "Ujra itt van plusz",                            type: "pdf", url: "Dalok/Ujra-itt-van-plusz.pdf" },
   { id: 101, title: "Boldog születésnapot - Halász Judit",          type: "pdf", url: "Dalok/100-szulinap/101-Boldog-szuletesnapot.pdf" },
+  { id: 102, title: "Happy Birthday",                                type: "pdf", url: "Dalok/100-szulinap/102-Happy-Birthday.pdf" },
   { id: 201, title: "Mi kéne még",                                   type: "pdf", url: "Dalok/200-Pop/201-Mi-kene-meg.pdf" },
   { id: 202, title: "Mindig kell egy barát",                         type: "pdf", url: "Dalok/200-Pop/202-Mindig-kell-egy-barat.pdf" },
   { id: 203, title: "Szép nyári nap",                                type: "pdf", url: "Dalok/200-Pop/203-Szep-nyari-nap.pdf" },
