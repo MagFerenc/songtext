@@ -23,6 +23,12 @@
     .card{padding:12px; border-radius:10px;}
   }
   h1{font-size:1.4rem; margin:0 0 4px;}
+  .titleRow{display:flex; align-items:flex-start; justify-content:space-between; gap:10px;}
+  #categoryBadge{
+    flex:0 0 auto; margin-top:2px; padding:5px 12px; border-radius:999px;
+    background:#111827; border:1px solid var(--accent); color:var(--accent);
+    font-size:.85rem; font-weight:600; white-space:nowrap; display:none;
+  }
   p.sub{color:var(--muted); margin:0 0 20px; font-size:.9rem;}
   label{display:block; font-size:.85rem; color:var(--muted); margin:16px 0 6px;}
   select, input[type=number]{
@@ -85,7 +91,10 @@
 </head>
 <body>
   <div class="card">
-    <h1>🎤 Dal vezérlő</h1>
+    <div class="titleRow">
+      <h1>🎤 Dal vezérlő</h1>
+      <span id="categoryBadge"></span>
+    </div>
     <p class="sub">Válaszd ki, melyik dal menjen — a nézők azonnal látni fogják.</p>
 
     <select id="songSelect" style="margin-top:4px;"></select>
@@ -232,6 +241,7 @@
       updatedAt: Date.now()
     });
     statusEl.innerHTML = `Most szól: <b>${song.title}</b>`;
+    updateCategory(song);
     updateNavHints();
     updateMediaMetadata(song);
 
@@ -265,6 +275,33 @@
       previewFrame.style.display = 'block';
       previewFrame.src = song.url;
     }
+  }
+
+  // Jobb felül: melyik mappában (kategóriában) van az aktuális dal
+  const CATEGORY_NAMES = {
+    '100-szulinap':   'Szülinap',
+    '200-pop':        'Pop',
+    '300-nemzetkozi': 'Nemzetközi',
+    '400-mulatos':    'Mulatós',
+    '500-nepi':       'Népi',
+    '600-cigany':     'Cigány',
+    '700-tanc':       'Tánc',
+    '800-bar-bossa':  'Bár / Bossa',
+    'pittnerf':       'Pittner F.'
+  };
+  const categoryBadge = document.getElementById('categoryBadge');
+  function categoryOf(song){
+    const m = /^Dalok\/([^/]+)\//i.exec(song.url || '');
+    if(!m) return '';
+    const folder = m[1];
+    if(CATEGORY_NAMES[folder.toLowerCase()]) return CATEGORY_NAMES[folder.toLowerCase()];
+    const name = folder.replace(/^\d+[-_ ]*/, '').replace(/[-_]+/g, ' ');
+    return name.charAt(0).toUpperCase() + name.slice(1);
+  }
+  function updateCategory(song){
+    const c = categoryOf(song);
+    categoryBadge.textContent = c ? '📁 ' + c : '';
+    categoryBadge.style.display = c ? 'inline-block' : 'none';
   }
 
   // A gombok alatt kis betűvel: melyik dal jön előző / következő gombra
