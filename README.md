@@ -2,9 +2,9 @@
 
 - 🎛️ **[Dal vezérlő](https://magferenc.github.io/songtext/controller.html)** — itt választod ki a dalt
 - 📄 **[Viewer — kijelző](https://magferenc.github.io/songtext/viewer.html)** — ezt nyisd meg a kijelzőn / tableten
-- 🎤 **[Karaoke vezérlő](https://magferenc.github.io/songtext/Karaoke/ControllerKaraoke.html)** — karaoke dal kiválasztása és indítása
-- 📱 **[Karaoke kijelző](https://magferenc.github.io/songtext/Karaoke/viewerKaraoke.html)** — a nézők ezen látják a futó szöveget
-- 🛠️ **[MIDI → LRC átalakító](https://magferenc.github.io/songtext/Karaoke/midi2lrc.html)** — karaoke-MIDI-ből időzített dalszöveg
+- 🎤 **[Karaoke vezérlő](https://magferenc.github.io/songtext/ControllerKaraoke.html)** — karaoke dal kiválasztása és indítása
+- 📱 **[Karaoke kijelző](https://magferenc.github.io/songtext/viewerKaraoke.html)** — a nézők ezen látják a futó szöveget
+- 🛠️ **[MIDI → LRC átalakító](https://magferenc.github.io/songtext/midi2lrc.html)** — karaoke-MIDI-ből időzített dalszöveg
 
 ---
 
@@ -55,8 +55,8 @@ A `categories.js` fájlban van, melyik dalszám-tartomány melyik kategória
 
 # Karaoke dalok
 
-A karaoke rész a `Karaoke` mappában van, a normál dalkijelzőtől függetlenül működik.
-A dalszövegek **LRC** fájlok (időzített dalszöveg), a `Karaoke` mappán belül ugyanolyan
+A karaoke oldalak (`ControllerKaraoke.html`, `viewerKaraoke.html`) a főkönyvtárban vannak, a normál
+dalkijelzőtől függetlenül működnek. A dalszövegek **LRC** fájlok (időzített dalszöveg), a `Karaoke` mappán belül ugyanolyan
 alkönyvtárakban, mint a PDF-ek a `Dalok` alatt (`200-Pop`, `300-nemzetkozi` …).
 
 ## Új karaoke dal hozzáadása
@@ -65,14 +65,14 @@ alkönyvtárakban, mint a PDF-ek a `Dalok` alatt (`200-Pop`, `300-nemzetkozi` �
    (Csak olyan MIDI-ből lesz LRC, amiben van dalszöveg — az oldal kiírja.)
 2. A repóban nyisd meg a `Karaoke` mappán belül a megfelelő alkönyvtárat, és töltsd fel az
    `.lrc` fájlt (**"Add file" → "Upload files"** → **"Commit changes"**).
-3. Nyisd meg a `Karaoke/karaoke-songs.js` fájlt (ceruza ikon), és a lista végére írj egy új sort:
+3. Nyisd meg a `karaoke-songs.js` fájlt (ceruza ikon), és a lista végére írj egy új sort:
 
    ```
-   { id: 202, title: "Dal címe - Előadó", url: "200-Pop/Fajl neve.lrc" },
+   { id: 202, title: "Dal címe - Előadó", url: "Karaoke/200-Pop/Fajl neve.lrc" },
    ```
 
    - **id**: egyedi szám; a kategória (jobb felső címke) a `categories.js` tartományai szerint jön
-   - **url**: alkönyvtár / fájlnév, pontosan úgy, ahogy feltöltötted (kis/nagybetű is számít)
+   - **url**: `Karaoke/` + alkönyvtár / fájlnév, pontosan úgy, ahogy feltöltötted (kis/nagybetű is számít)
 
 ## Használat élőben
 
