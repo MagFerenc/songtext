@@ -210,7 +210,7 @@ function toLines(syl){
   const lines=[];let cur=[];
   const flush=()=>{if(cur.length){lines.push(cur);cur=[]}};
   for(const {t,s:raw} of syl){
-    let s=raw;
+    let s=raw.replace(/_/g,' ');   // néhány karaoke-fájl szóköz helyett aláhúzást használ
     if(hasBreaks){
       if(/^[\/\\]/.test(s)){flush();s=s.replace(/^[\/\\]+/,'');}
       const endBr=/[\r\n]\s*$/.test(s);
