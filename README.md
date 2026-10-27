@@ -95,5 +95,7 @@ a nézők kijelzőjén **nem** jelennek meg.
   `karaoke-songs.js`-be nem kell beírni.
 - A **MIDI → LRC átalakító** ezt is elkészíti: ha a MIDI-ben vannak akkordok (Yamaha XF fájlok),
   azokat veszi ki („✔ a fájlból”), ha nincsenek, a MIDI hangjaiból becsüli („≈ becsült”).
+  Alapból **egyszerű akkordokat** ír (dúr, moll, 7-es, ritkán dim) — a részletesebbekhez
+  (maj7, m7, sus4, basszushang…) vedd ki az „egyszerű akkordok” jelölőt a fájlok behúzása előtt.
   A becsült akkord nem mindig tökéletes — a fájl szövegszerkesztővel javítható, soronként
   `[perc:mp.század]Akkord`, pl. `[00:25.40]Dm`.

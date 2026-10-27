@@ -20,7 +20,8 @@ Mappánál a ZIP-ben ugyanaz a mappaszerkezet lesz, mint az eredetiben.<br>
 Minden dal mellé „….akkord.lrc” fájl is készül: ha a MIDI-ben vannak akkordok (Yamaha XF), azok kerülnek bele, ha nincsenek, a hangokból becsült akkordok. Ezt csak a karaoke vezérlő mutatja, a nézők nem látják.</p>
 <div id="drop">Húzd ide a fájlokat vagy mappákat, vagy kattints a fájlok tallózásához
 <input id="f" type="file" accept=".mid,.midi,.kar" multiple hidden><input id="d" type="file" webkitdirectory multiple hidden></div>
-<div style="margin-top:10px"><button class="sec" id="dirBtn">📁 Egész mappa kiválasztása</button></div>
+<div style="margin-top:10px;display:flex;gap:16px;align-items:center;flex-wrap:wrap"><button class="sec" id="dirBtn">📁 Egész mappa kiválasztása</button>
+<label style="color:#ccc;font-size:14px"><input type="checkbox" id="simpleCh" checked> egyszerű akkordok (csak dúr, moll, 7-es) — fájlok behúzása előtt állítsd</label></div>
 <div id="bar"><button id="zip">⬇ Összes LRC letöltése (ZIP)</button><button class="sec" id="clr">Lista törlése</button><label style="color:#ccc;font-size:14px"><input type="checkbox" id="withCh" checked> akkord fájlokkal együtt</label><span id="cnt"></span></div>
 <table id="t" hidden><thead><tr><th>MIDI fájl</th><th>Szöveg</th><th>LRC fájlnév</th><th></th></tr></thead><tbody></tbody></table>
 <script>
@@ -67,6 +68,15 @@ const NOTE_SHARP=['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
 const NOTE_FLAT =['C','Db','D','Eb','E','F','Gb','G','Ab','A','Bb','B'];
 // Yamaha XF akkord-esemény: FF 7F len 43 7B 01 cr ct bn bt
 const XF_TYPES=['','6','maj7','maj7(#11)','add9','maj9','6/9','aug','m','m6','m7','m7b5','m(add9)','m9','m11','m(maj7)','m(maj9)','dim','dim7','7','7sus4','7b5','9','7(#11)','13','7(b9)','7(b13)','7(#9)','maj7aug','7aug','1+8','5','sus4','sus2',null];
+// Egyszerű akkordok: csak dúr, moll, 7-es (és a ritka dim) — a többi a legközelebbi egyszerűre
+const simpleChords=()=>{const c=typeof document!=='undefined'&&document.getElementById('simpleCh');return c?c.checked:true};
+function simplifyType(t){
+  if(t==='dim'||t==='dim7'||t==='m7b5')return 'dim';
+  if(/^m(?!aj)/.test(t))return 'm';
+  if(/^(7|9|13)/.test(t)&&!/^7sus/.test(t))return '7';
+  if(t==='7sus4')return '7';
+  return '';
+}
 function xfNote(b){
   const acc=b>>4,n=b&15;if(n<1||n>7)return null;
   return 'CDEFGAB'[n-1]+(['bbb','bb','b','','#','##','###'][acc]??'');
@@ -77,8 +87,8 @@ function xfChords(ev){
     if(e.ty!==0x7F||e.raw.length<7||e.raw[0]!==0x43||e.raw[1]!==0x7B||e.raw[2]!==0x01)continue;
     const root=xfNote(e.raw[3]),type=XF_TYPES[e.raw[4]];
     if(!root||type===null||type===undefined){out.push({t:e.t,c:'N.C.'});continue;}
-    let c=root+type;
-    if(e.raw[5]!==127&&e.raw[5]!==e.raw[3]){const bs=xfNote(e.raw[5]);if(bs)c+='/'+bs;}
+    let c=root+(simpleChords()?simplifyType(type):type);
+    if(!simpleChords()&&e.raw[5]!==127&&e.raw[5]!==e.raw[3]){const bs=xfNote(e.raw[5]);if(bs)c+='/'+bs;}
     out.push({t:e.t,c});
   }
   return dedupe(out);
@@ -90,7 +100,9 @@ const TEMPLATES=[ // [név, hangközök, prior]
   ['',[0,4,7],0.10],['m',[0,3,7],0.08],['7',[0,4,7,10],0.02],['m7',[0,3,7,10],0.0],
   ['maj7',[0,4,7,11],-0.02],['dim',[0,3,6],-0.06],['aug',[0,4,8],-0.08],['sus4',[0,5,7],-0.06],['6',[0,4,7,9],-0.04]
 ];
+const SIMPLE_TEMPLATES=[['',[0,4,7],0.10],['m',[0,3,7],0.08],['7',[0,4,7,10],0.0],['dim',[0,3,6],-0.08]];
 function estimateChords(ev,lyricTrk){
+  const TPL=simpleChords()?SIMPLE_TEMPLATES:TEMPLATES;
   // hangok tartammal
   const open={},notes=[];
   for(const e of ev){
@@ -114,7 +126,7 @@ function estimateChords(ev,lyricTrk){
     }
   }
   // ütésenkénti pontszám minden akkordra
-  const C=[];for(let r=0;r<12;r++)for(const [nm,iv,pr] of TEMPLATES)C.push({r,nm,set:iv.map(i=>(r+i)%12),pr});
+  const C=[];for(let r=0;r<12;r++)for(const [nm,iv,pr] of TPL)C.push({r,nm,set:iv.map(i=>(r+i)%12),pr});
   const S=H.map((h,b)=>{
     const tot=h.reduce((s,x)=>s+x,0),lowt=LOW[b].reduce((s,x)=>s+x,0);
     if(tot<0.05)return null;
@@ -151,7 +163,14 @@ function estimateChords(ev,lyricTrk){
     const c=C[path[b]];const name=(flatKey?NOTE_FLAT:NOTE_SHARP)[c.r]+c.nm;
     if(!out.length||out[out.length-1].c!==name)out.push({t:tt(b*div),c:name});
   }
-  return out;
+  // nagyon rövid (0,7 mp alatti) váltások kiszűrése — az ilyen többnyire csak átmenő hang
+  for(let changed=true;changed;){
+    changed=false;
+    for(let i=0;i<out.length-1;i++){
+      if(out[i+1].t-out[i].t<0.7&&out[i].c!=='N.C.'){out.splice(i,1);changed=true;break;}
+    }
+  }
+  return dedupe(out);
 }
 function isSilentRun(S,b){let n=0;for(let i=b;i<S.length&&!S[i];i++)n++;return n>=4;}
 function guessFlat(H){ // b-s vagy #-es írásmód a hangkészlet alapján
