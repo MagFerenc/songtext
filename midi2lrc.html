@@ -15,8 +15,11 @@ details summary{cursor:pointer;color:#ffcc00}
 pre{white-space:pre-wrap;color:#bbb;font-size:12px;max-height:260px;overflow:auto}
 </style></head><body>
 <h1>MIDI → LRC átalakító</h1>
-<p>Húzd ide a MIDI fájlokat (akár egyszerre az összeset). A szöveget tartalmazókból LRC készül „Előadó - Cím.lrc” néven. A név letöltés előtt átírható.</p>
-<div id="drop">Húzd ide a fájlokat, vagy kattints a tallózáshoz<input id="f" type="file" accept=".mid,.midi,.kar" multiple hidden></div>
+<p>Húzd ide a MIDI / KAR fájlokat vagy egész mappákat. A szöveget tartalmazókból LRC készül „Előadó - Cím.lrc” néven. A név letöltés előtt átírható.
+Mappánál a ZIP-ben ugyanaz a mappaszerkezet lesz, mint az eredetiben.</p>
+<div id="drop">Húzd ide a fájlokat vagy mappákat, vagy kattints a fájlok tallózásához
+<input id="f" type="file" accept=".mid,.midi,.kar" multiple hidden><input id="d" type="file" webkitdirectory multiple hidden></div>
+<div style="margin-top:10px"><button class="sec" id="dirBtn">📁 Egész mappa kiválasztása</button></div>
 <div id="bar"><button id="zip">⬇ Összes LRC letöltése (ZIP)</button><button class="sec" id="clr">Lista törlése</button><span id="cnt"></span></div>
 <table id="t" hidden><thead><tr><th>MIDI fájl</th><th>Szöveg</th><th>LRC fájlnév</th><th></th></tr></thead><tbody></tbody></table>
 <script>
@@ -120,7 +123,7 @@ const baseName=m=>m.fromFile?m.title:safe(m.artist?m.artist+' - '+m.title:m.titl
 const tb=document.querySelector('#t tbody');
 function addRow(it){
   document.getElementById('t').hidden=false;document.getElementById('bar').style.display='flex';
-  const tr=tb.insertRow();tr.insertCell().textContent=it.file;
+  const tr=tb.insertRow();tr.insertCell().textContent=(it.dir?it.dir+'/':'')+it.file;
   const c=tr.insertCell(),n=tr.insertCell(),a=tr.insertCell();
   if(it.err){c.innerHTML='<span class="no">Hiba</span>';n.textContent=it.err;return}
   if(!it.lrc){c.innerHTML='<span class="no">✘ Nincs</span>';n.textContent='Nincs benne időzített szöveg.';return}
@@ -134,9 +137,12 @@ function addRow(it){
   b.onclick=()=>save(new Blob([it.lrc],{type:'text/plain;charset=utf-8'}),it.name+'.lrc');a.appendChild(b);
 }
 function count(){const k=items.filter(i=>i.lrc).length;document.getElementById('cnt').textContent=k+' LRC készült / '+items.length+' fájl'}
+// fs: [{file, dir}] — dir = a fájl mappája a kiválasztott/behúzott mappán belül ('' ha nincs)
+const isMidi=n=>/\.(mid|midi|kar)$/i.test(n);
 async function handle(fs){
-  for(const f of fs){
-    const it={file:f.name};
+  fs=fs.filter(x=>isMidi(x.file.name)).sort((a,b)=>(a.dir+'/'+a.file.name).localeCompare(b.dir+'/'+b.file.name,'hu'));
+  for(const {file:f,dir} of fs){
+    const it={file:f.name,dir};
     try{
       const ev=parseMidi(await f.arrayBuffer());const syl=syllables(ev);
       if(syl){const m=meta(ev,f.name),lines=toLines(syl);
@@ -170,13 +176,35 @@ function zip(files){
 }
 document.getElementById('zip').onclick=()=>{
   const used={},files=[];
-  for(const it of items.filter(i=>i.lrc)){let n=it.name,k=2;while(used[n.toLowerCase()])n=it.name+' ('+k+++')';used[n.toLowerCase()]=1;files.push({name:n+'.lrc',text:it.lrc})}
+  for(const it of items.filter(i=>i.lrc)){
+    const pre=it.dir?it.dir+'/':'';let n=it.name,k=2;
+    while(used[(pre+n).toLowerCase()])n=it.name+' ('+k+++')';
+    used[(pre+n).toLowerCase()]=1;files.push({name:pre+n+'.lrc',text:it.lrc});
+  }
   if(files.length)save(zip(files),'LRC_fajlok.zip');
 };
 document.getElementById('clr').onclick=()=>{items.length=0;tb.innerHTML='';document.getElementById('t').hidden=true;document.getElementById('bar').style.display='none'};
 const dr=document.getElementById('drop'),fi=document.getElementById('f');
-dr.onclick=()=>fi.click();fi.onchange=()=>{handle([...fi.files]);fi.value=''};
+const di=document.getElementById('d');
+const dirOf=p=>p.includes('/')?p.slice(0,p.lastIndexOf('/')):'';
+dr.onclick=()=>fi.click();fi.onchange=()=>{handle([...fi.files].map(file=>({file,dir:''})));fi.value=''};
+document.getElementById('dirBtn').onclick=()=>di.click();
+di.onchange=()=>{handle([...di.files].map(file=>({file,dir:dirOf(file.webkitRelativePath||'')})));di.value=''};
 dr.ondragover=e=>{e.preventDefault();dr.classList.add('hov')};
 dr.ondragleave=()=>dr.classList.remove('hov');
-dr.ondrop=e=>{e.preventDefault();dr.classList.remove('hov');handle([...e.dataTransfer.files])};
+// Behúzott mappák bejárása (almappákkal együtt)
+function readAll(reader){return new Promise((res,rej)=>{const out=[];const next=()=>reader.readEntries(b=>{if(!b.length)res(out);else{out.push(...b);next()}},rej);next()})}
+async function walk(entry,dir,out){
+  if(entry.isFile){out.push({file:await new Promise((r,j)=>entry.file(r,j)),dir});}
+  else if(entry.isDirectory){const sub=dir?dir+'/'+entry.name:entry.name;for(const e of await readAll(entry.createReader()))await walk(e,sub,out);}
+}
+dr.ondrop=async e=>{
+  e.preventDefault();dr.classList.remove('hov');
+  const its=[...e.dataTransfer.items];
+  if(its.length&&its[0].webkitGetAsEntry){
+    const entries=its.map(i=>i.webkitGetAsEntry()).filter(Boolean),out=[];
+    for(const en of entries)await walk(en,'',out);
+    handle(out);
+  }else handle([...e.dataTransfer.files].map(file=>({file,dir:''})));
+};
 </script></body></html>
