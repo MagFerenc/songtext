@@ -151,8 +151,28 @@ function KaraokeView(box, opts){
       if(cs[k].length){ const c = document.createElement('i'); c.className = 'kv-ch'; c.textContent = cs[k].join(' '); s.appendChild(c); s.classList.add('kv-w'); }
       target.appendChild(s); sp.push(s);
     });
+    if(chords && !l.chordOnly) spaceChords(sp);
     return sp;
   }
+  // Akkordjelek ne érjenek össze: ha kell, a szövegben nagyobb hézagot hagyunk (csak a vezérlőn,
+  // mert akkord csak ott van)
+  function spaceChords(sp){
+    let prev = null;
+    for(const s of sp){
+      const ch = s.querySelector('.kv-ch');
+      if(!ch) continue;
+      if(prev){
+        const a = prev.ch.getBoundingClientRect(), b = s.getBoundingClientRect();
+        const gap = parseFloat(getComputedStyle(ch).fontSize) * 0.5;
+        if(Math.abs(b.top - prev.s.getBoundingClientRect().top) < 4 && b.left < a.right + gap){
+          const need = a.right + gap - b.left, before = s.previousElementSibling;
+          if(before) before.style.marginRight = need + 'px';
+        }
+      }
+      prev = { s, ch };
+    }
+  }
+
   function setLines(prevI, curI){
     el.prev.classList.remove('kv-hasch');
     el.prev.textContent = lineText(lrc.lines[prevI]);
