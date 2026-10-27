@@ -47,7 +47,8 @@ function parseLrc(text){
   return { meta, lines };
 }
 
-// Kirajzoló: a megadott dobozba négy sort tesz (előző, aktuális, következő, utána következő)
+// Kirajzoló: a megadott dobozba négy sort tesz (előző, aktuális, következő, utána következő).
+// Akkordokat csak akkor mutat, ha setChords()-szal kap — ezt csak a vezérlő hívja, a néző nem.
 function KaraokeView(box){
   box.classList.add('kv');
   box.innerHTML =
@@ -57,25 +58,54 @@ function KaraokeView(box){
     prev: box.querySelector('.kv-prev'), cur: box.querySelector('.kv-cur'),
     next: box.querySelector('.kv-next'), next2: box.querySelector('.kv-next2')
   };
-  let lrc = null, shownIdx = null, spans = [];
+  let lrc = null, chords = null, shownIdx = null, spans = [];
   const lineText = l => l ? l.syl.map(x => x.s).join('').trim() : '';
 
-  function setLines(prevI, curI){
-    el.prev.textContent  = lineText(lrc.lines[prevI]);
-    el.next.textContent  = lineText(lrc.lines[curI + 1]);
-    el.next2.textContent = lineText(lrc.lines[curI + 2]);
-    el.cur.innerHTML = ''; spans = [];
-    const l = lrc.lines[curI];
-    if(l) l.syl.forEach(x => {
-      const sp = document.createElement('span');
-      sp.textContent = x.s; sp._t = x.t;
-      el.cur.appendChild(sp); spans.push(sp);
+  // Melyik akkord melyik szótag fölé kerül: a sor első szótagja fölé a
+  // pillanatnyi akkord, a többi fölé csak akkor, ha ott váltás van.
+  function chordAt(t){ let c = null; for(const x of chords){ if(x.t <= t + 0.05) c = x.c; else break; } return c; }
+  function chordsFor(line, nextLine){
+    const out = line.syl.map(() => []);
+    if(!chords) return out;
+    const syl = line.syl, last = syl[syl.length - 1].t;
+    const end = Math.min(nextLine ? nextLine.t : Infinity, last + 2);   // hosszú hangszeres részt nem írunk a sor fölé
+    const first = chordAt(syl[0].t + 0.15);
+    if(first) out[0].push(first);
+    for(const ch of chords){
+      if(ch.t <= syl[0].t + 0.15 || ch.t >= end - 0.1) continue;
+      // az a szótag kapja, amelyik ott (vagy közvetlenül utána) kezdődik
+      let k = 0; for(let j = 0; j < syl.length; j++){ if(syl[j].t <= ch.t + 0.15) k = j; else break; }
+      out[k].push(ch.c);
+    }
+    return out.map(a => a.filter((c, i) => i === 0 || c !== a[i - 1]));
+  }
+  function fill(target, idx, keepSpans){
+    const l = lrc.lines[idx];
+    target.innerHTML = '';
+    target.classList.toggle('kv-hasch', !!chords);
+    if(!l) return [];
+    if(!chords && !keepSpans){ target.textContent = lineText(l); return []; }
+    const cs = chordsFor(l, lrc.lines[idx + 1]), sp = [];
+    l.syl.forEach((x, k) => {
+      const s = document.createElement('span');
+      s.textContent = k === l.syl.length - 1 ? x.s.replace(/\s+$/, '') : x.s; s._t = x.t;
+      if(cs[k].length){ const c = document.createElement('i'); c.className = 'kv-ch'; c.textContent = cs[k].join(' '); s.appendChild(c); s.classList.add('kv-w'); }
+      target.appendChild(s); sp.push(s);
     });
+    return sp;
+  }
+  function setLines(prevI, curI){
+    el.prev.classList.remove('kv-hasch');
+    el.prev.textContent = lineText(lrc.lines[prevI]);
+    spans = fill(el.cur, curI, true);
+    fill(el.next, curI + 1, false);
+    fill(el.next2, curI + 2, false);
   }
 
   return {
     load(parsed){ lrc = parsed; shownIdx = null; this.render(null); },
-    clear(){ lrc = null; shownIdx = null; Object.values(el).forEach(e => e.textContent = ''); },
+    setChords(list){ chords = list && list.length ? list : null; shownIdx = null; },
+    clear(){ lrc = null; chords = null; shownIdx = null; Object.values(el).forEach(e => { e.textContent = ''; e.classList.remove('kv-hasch'); }); },
     // t: eltelt másodperc a dal indítása óta; null = még nem indult
     render(t){
       if(!lrc || !lrc.lines.length) return;
@@ -83,9 +113,7 @@ function KaraokeView(box){
       if(t !== null) for(let k = 0; k < lrc.lines.length; k++){ if(lrc.lines[k].t <= t) i = k; else break; }
 
       if(i < 0){
-        // még az első sor előtt: az első sorok látszanak, kiemelés nélkül
-        const key = 'pre';
-        if(shownIdx !== key){ shownIdx = key; setLines(-1, 0); }
+        if(shownIdx !== 'pre'){ shownIdx = 'pre'; setLines(-1, 0); }
         const left = t === null ? Infinity : lrc.lines[0].t - t;
         el.prev.innerHTML = (left <= KARAOKE_COUNTDOWN && left > 0)
           ? '<span class="kv-cd">' + Math.ceil(left) + '</span>' : '';
@@ -96,6 +124,15 @@ function KaraokeView(box){
       spans.forEach(sp => sp.classList.toggle('on', sp._t <= t));
     }
   };
+}
+
+// Akkordfájl: ugyanaz a név, csak ".akkord.lrc" végződéssel. Ha nincs ilyen, nincs akkord.
+function chordUrlFor(url){ return url.replace(/\.lrc$/i, '') + '.akkord.lrc'; }
+function fetchChords(url){
+  return fetch(encodeURI(chordUrlFor(url)), { cache: 'no-cache' })
+    .then(r => r.ok ? r.text() : '')
+    .then(txt => txt ? parseLrc(txt).lines.map(l => ({ t: l.t, c: l.syl.map(x => x.s).join('').trim() })).filter(x => x.c) : [])
+    .catch(() => []);
 }
 
 // LRC letöltése (a fájlnévben lehet szóköz, ékezet, & stb.)

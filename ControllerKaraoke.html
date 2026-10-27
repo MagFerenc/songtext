@@ -75,6 +75,17 @@
   .kv-next2{font-size:.95rem; color:#6b7280;}
   .kv-cur span.on{color:var(--yellow);}
   .kv-cd{color:var(--yellow); font-weight:700; font-size:1.4em;}
+  /* Akkordok a szótagok fölött (csak itt, a nézőknél nem) */
+  .kv-hasch{padding-top:1.05em;}
+  .kv-w{position:relative;}
+  .kv-ch{position:absolute; left:0; bottom:100%; font-style:normal; font-weight:700; font-size:.62em;
+         color:#60a5fa; white-space:nowrap; line-height:1.2;}
+  .kv-cur .kv-ch{font-size:.55em;}
+  #chordBar{display:none; margin-top:12px; padding:10px 14px; border-radius:10px; background:#0b1220;
+            border:1px solid #374151; align-items:baseline; gap:14px; justify-content:center;}
+  #chordNow{font-size:2rem; font-weight:800; color:#60a5fa; min-width:3ch; text-align:right;}
+  #chordNext{font-size:1.2rem; color:var(--muted);}
+  #chordSrc{font-size:.75rem; color:var(--muted); margin-left:auto;}
 
   .hint{margin-top:10px; font-size:.8rem; color:var(--muted); line-height:1.5;}
   .hint kbd{background:#374151; border-radius:4px; padding:1px 5px; font-family:inherit; color:#e5e7eb;}
@@ -132,6 +143,7 @@
 
     <div class="status"><span id="status">Nincs kiválasztott dal</span><span id="clock"></span></div>
 
+    <div id="chordBar"><span id="chordNow"></span><span id="chordNext"></span><span id="chordSrc"></span></div>
     <div id="previewBox"><div id="kv"></div><div id="previewMsg"></div></div>
 
     <div class="hint">
@@ -224,7 +236,7 @@
   // ---- Állapot ----
   let currentIndex = -1;
   let state = null;          // ami a Firebase-ben van: { id, title, url, startedAt }
-  let loadedUrl = null, loadToken = 0;
+  let loadedUrl = null, loadToken = 0, chordList = [];
 
   function songLabel(i){ return (i >= 0 && i < SONGS.length) ? `${SONGS[i].id}. ${SONGS[i].title}` : '—'; }
   function updateNavHints(){
@@ -264,10 +276,12 @@
     $('status').querySelector('b').textContent = state.title || '';
     if(state.url !== loadedUrl){
       const my = ++loadToken, url = state.url;
-      loadedUrl = null; view.clear(); $('previewMsg').textContent = 'Betöltés…';
-      fetchLrc(url).then(lrc => {
+      loadedUrl = null; view.clear(); chordList = []; $('chordBar').style.display = 'none'; $('previewMsg').textContent = 'Betöltés…';
+      Promise.all([fetchLrc(url), fetchChords(url)]).then(([lrc, ch]) => {
         if(my !== loadToken) return;
         $('previewMsg').textContent = lrc.lines.length ? '' : 'A dalszöveg üres.';
+        chordList = ch; view.setChords(ch);
+        $('chordBar').style.display = ch.length ? 'flex' : 'none';
         view.load(lrc); loadedUrl = url; updateButtons();
       }).catch(e => {
         if(my !== loadToken) return;
@@ -284,6 +298,13 @@
       const t = running() ? (serverNow() - state.startedAt) / 1000 : null;
       view.render(t);
       $('clock').textContent = t === null ? '' : fmt(t);
+      if(chordList.length){
+        const tt = t === null ? -1 : t;
+        let i = -1; for(let k = 0; k < chordList.length; k++){ if(chordList[k].t <= tt + 0.05) i = k; else break; }
+        const cur = i >= 0 ? chordList[i] : null, nx = chordList[i + 1];
+        $('chordNow').textContent = cur ? cur.c : '–';
+        $('chordNext').textContent = nx ? '→ ' + nx.c + (t !== null ? '  (' + Math.max(0, nx.t - t).toFixed(1) + ' mp)' : '') : '';
+      }
     } else $('clock').textContent = '';
     requestAnimationFrame(tick);
   }

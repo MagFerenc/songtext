@@ -8,6 +8,8 @@
 //   1. Töltsd fel az .lrc fájlt a megfelelő alkönyvtárba (pl. Karaoke/200-Pop).
 //   2. Írj ide egy új sort, pl.:
 //   { id: 202, title: "Dal címe - Előadó", url: "Karaoke/200-Pop/Fajl neve.lrc" },
+//   3. Ha van hozzá akkordfájl (Fajl neve.akkord.lrc), töltsd fel ugyanabba a mappába —
+//      a vezérlő magától megtalálja, ide nem kell beírni. A nézők nem látják.
 //
 // id:      egyedi szám — ezt lehet a "Dal száma" mezőbe beírva kiválasztani.
 //          A kategória (jobb felső címke) a categories.js szerint jön.
@@ -19,5 +21,6 @@
 // ============================================================
 const KARAOKE_SONGS = [
   { id: 201, title: "Szeress úgy is, ha rossz vagyok",                 url: "Karaoke/200-Pop/Szeress_ugy_is_ha_rossz_vagyok.lrc" },
-  { id: 301, title: "You're The One That I Want - Travolta & Newton-John", url: "Karaoke/300-nemzetkozi/John Travolta & Olivia Newton John - You're The One That I Want.lrc" }
+  { id: 301, title: "You're The One That I Want - Travolta & Newton-John", url: "Karaoke/300-nemzetkozi/John Travolta & Olivia Newton John - You're The One That I Want.lrc" },
+  { id: 401, title: "A szerelem égeti - Bódi Guszti",                 url: "Karaoke/400-mulatos/Bódi Guszti - A Szerelem Égeti.lrc" }
 ];

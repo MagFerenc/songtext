@@ -84,3 +84,16 @@ alkönyvtárakban, mint a PDF-ek a `Dalok` alatt (`200-Pop`, `300-nemzetkozi` �
 
 Ha a MIDI-t USB-n csatlakoztatott hangszer vagy lejátszó játssza, a „MIDI Start/Stop jelre”
 jelölővel a vezérlő magától indul és áll le (Chrome / Edge böngészőben).
+
+## Akkordok (csak a vezérlőn látszanak)
+
+A karaoke vezérlő a szöveg fölött és egy nagy kijelzőn („most → következő”) mutatja az akkordokat,
+a nézők kijelzőjén **nem** jelennek meg.
+
+- Az akkordok külön fájlban vannak, a dal LRC-je mellett, ugyanazzal a névvel, csak `.akkord.lrc`
+  végződéssel (pl. `Dal.lrc` mellett `Dal.akkord.lrc`). A vezérlő magától megtalálja, a
+  `karaoke-songs.js`-be nem kell beírni.
+- A **MIDI → LRC átalakító** ezt is elkészíti: ha a MIDI-ben vannak akkordok (Yamaha XF fájlok),
+  azokat veszi ki („✔ a fájlból”), ha nincsenek, a MIDI hangjaiból becsüli („≈ becsült”).
+  A becsült akkord nem mindig tökéletes — a fájl szövegszerkesztővel javítható, soronként
+  `[perc:mp.század]Akkord`, pl. `[00:25.40]Dm`.
