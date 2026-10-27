@@ -44,7 +44,10 @@ function parseLrc(text){
     });
   });
   lines.sort((a, b) => a.t - b.t);
-  return { meta, lines };
+  // a dal hossza: [length:] mezőből, ha nincs, az utolsó szótag + 10 mp
+  let length = meta.length ? parseLrcTime(meta.length) : null;
+  if(!length && lines.length){ const l = lines[lines.length - 1]; length = l.syl[l.syl.length - 1].t + 10; }
+  return { meta, lines, length };
 }
 
 // Kirajzoló: előző sor, aktuális sor, alatta a következő sorok.

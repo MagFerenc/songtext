@@ -236,7 +236,7 @@
   let currentIndex = -1;
   let state = null;          // ami a Firebase-ben van: { id, title, url, startedAt, pauseAt, pausedAt, minT }
                              //   (lásd karaokeTime() a karaoke-core.js-ben)
-  let loadedUrl = null, loadToken = 0, chordList = [];
+  let loadedUrl = null, loadToken = 0, chordList = [], songLength = null, autoStopped = false;
 
   function songLabel(i){ return (i >= 0 && i < SONGS.length) ? `${SONGS[i].id}. ${SONGS[i].title}` : '—'; }
   function updateNavHints(){
@@ -309,7 +309,7 @@
       Promise.all([fetchLrc(url), fetchChords(url)]).then(([lrc, ch]) => {
         if(my !== loadToken) return;
         $('previewMsg').textContent = lrc.lines.length ? '' : 'A dalszöveg üres.';
-        chordList = ch; view.setChords(ch);
+        chordList = ch; view.setChords(ch); songLength = lrc.length;
         $('chordBar').style.display = ch.length ? 'flex' : 'none';
         view.load(lrc); loadedUrl = url; updateButtons();
       }).catch(e => {
@@ -326,7 +326,11 @@
     if(state && loadedUrl === state.url){
       const t = karaokeTime(state, serverNow());
       view.render(t);
-      $('clock').textContent = t === null ? '' : fmt(t);
+      $('clock').textContent = t === null ? '' : fmt(t) + (songLength ? ' / ' + fmt(songLength).replace(/\.\d$/, '') : '');
+      // A dal végén magától leáll (egyszer küldjük el)
+      if(t !== null && songLength && t > songLength + 1 && running()){
+        if(!autoStopped){ autoStopped = true; stop(); }
+      } else if(t === null) autoStopped = false;
       if(chordList.length){
         const tt = t === null ? -1 : t;
         let i = -1; for(let k = 0; k < chordList.length; k++){ if(chordList[k].t <= tt + 0.05) i = k; else break; }

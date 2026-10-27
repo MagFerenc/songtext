@@ -228,10 +228,11 @@ function toLines(syl){
 }
 
 const ts=x=>{x=Math.max(0,x);const m=Math.floor(x/60),s=x-m*60;return String(m).padStart(2,'0')+':'+s.toFixed(2).padStart(5,'0')};
-function makeLrc(m,lines){
+function makeLrc(m,lines,len){
   const out=[];
   if(m.title)out.push('[ti:'+m.title+']');
   if(m.artist)out.push('[ar:'+m.artist+']');
+  if(len)out.push('[length:'+ts(len)+']');   // a dal hossza — a karaoke vezérlő ennél áll le
   out.push('[by:MIDI → LRC]');
   for(const l of lines)out.push('['+ts(l[0].t)+']'+l.map(x=>'<'+ts(x.t)+'>'+x.s).join('').trimEnd());
   return out.join('\r\n')+'\r\n';
@@ -277,7 +278,7 @@ async function handle(fs){
     try{
       const ev=parseMidi(await f.arrayBuffer());const syl=syllables(ev);
       if(syl){const m=meta(ev,f.name),lines=toLines(syl);
-        if(lines.length){it.lrc=makeLrc(m,lines);it.lines=lines.length;it.name=baseName(m);
+        if(lines.length){it.lrc=makeLrc(m,lines,ev.reduce((a,e)=>Math.max(a,e.t||0),0));it.lines=lines.length;it.name=baseName(m);
           let ch=xfChords(ev),src='xf';
           if(ch.length<2){ch=estimateChords(ev,(ev.find(e=>e.ty===5)||{}).trk);src='est';}
           if(ch.length){it.chords=makeChords(m,ch,src);it.chSrc=src;it.chN=ch.length;}}}
