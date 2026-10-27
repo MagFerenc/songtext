@@ -166,6 +166,19 @@ function fetchChords(url){
     .catch(() => []);
 }
 
+// Hol tart a dal (mp) a közös állapot alapján; null = nem indult.
+//   startedAt: indulás (szerveridő, ms)
+//   pauseAt / pausedAt: ütemezett szünet — eddig a szerveridőig fut, utána pausedAt-nál áll
+//   minT: folytatás után ennél nem mutat korábbit (így nincs visszaugrás a hálózati késés miatt)
+const KARAOKE_SYNC_DELAY = 400;   // ms — ennyivel előre ütemezzük a szünetet/folytatást
+function karaokeTime(state, now){
+  if(!state || !state.startedAt) return null;
+  let t = (now - state.startedAt) / 1000;
+  if(typeof state.pausedAt === 'number' && state.pauseAt) t = Math.min(t, state.pausedAt);
+  if(typeof state.minT === 'number') t = Math.max(t, state.minT);
+  return t;
+}
+
 // LRC letöltése (a fájlnévben lehet szóköz, ékezet, & stb.)
 function fetchLrc(url){
   return fetch(encodeURI(url), { cache: 'no-cache' }).then(r => {

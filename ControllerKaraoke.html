@@ -234,8 +234,8 @@
 
   // ---- Állapot ----
   let currentIndex = -1;
-  let state = null;          // ami a Firebase-ben van: { id, title, url, startedAt, pausedAt }
-                             //   startedAt: fut (szerveridő, ms) · pausedAt: szünet (hol tart, mp) · mindkettő üres: áll
+  let state = null;          // ami a Firebase-ben van: { id, title, url, startedAt, pauseAt, pausedAt, minT }
+                             //   (lásd karaokeTime() a karaoke-core.js-ben)
   let loadedUrl = null, loadToken = 0, chordList = [];
 
   function songLabel(i){ return (i >= 0 && i < SONGS.length) ? `${SONGS[i].id}. ${SONGS[i].title}` : '—'; }
@@ -251,26 +251,38 @@
     kRef.set({ index, id: song.id, title: song.title, url: song.url, startedAt: null, updatedAt: SV.TIMESTAMP });
   }
 
-  const running = () => !!(state && state.startedAt);
-  const paused  = () => !!(state && !state.startedAt && typeof state.pausedAt === 'number');
-  const active  = () => running() || paused();
+  const D = KARAOKE_SYNC_DELAY;
+  const paused  = () => !!(state && state.startedAt && state.pauseAt);
+  const running = () => !!(state && state.startedAt && !state.pauseAt);
+  const active  = () => !!(state && state.startedAt);
   const ready   = () => !!(state && state.url && loadedUrl === state.url);
+  const CLEAR = { pauseAt: null, pausedAt: null, minT: null };
   function start(){            // elejéről
-    if(ready() && !running()) kRef.update({ startedAt: SV.TIMESTAMP, pausedAt: null });
+    if(ready() && !active()) kRef.update({ startedAt: SV.TIMESTAMP, ...CLEAR });
   }
+  function restart(){ if(ready()) kRef.update({ startedAt: SV.TIMESTAMP, ...CLEAR }); }
+  // Szünet: D ms múlva áll meg — addigra minden telefon megkapja, így egyszerre, ugrás nélkül állnak meg
   function pause(){
-    if(running()) kRef.update({ startedAt: null, pausedAt: (serverNow() - state.startedAt) / 1000 });
+    if(!running()) return;
+    const at = serverNow() + D;
+    kRef.update({ pauseAt: at, pausedAt: (at - state.startedAt) / 1000, minT: null });
   }
+  // Folytatás: D ms múlva indul tovább ugyanonnan
   function resume(){
-    if(paused()) kRef.update({ startedAt: Math.round(serverNow() - state.pausedAt * 1000), pausedAt: null });
+    if(!paused()) return;
+    const p = karaokeTime(state, serverNow());
+    kRef.update({ startedAt: Math.round(serverNow() + D - p * 1000), pauseAt: null, pausedAt: null, minT: p });
   }
   // Start gomb / Szóköz: áll → indul, fut → szünet, szünet → folytatás
   function toggle(){ if(running()) pause(); else if(paused()) resume(); else start(); }
-  function stop(){ if(active()) kRef.update({ startedAt: null, pausedAt: null }); }
+  function stop(){ if(active()) kRef.update({ startedAt: null, ...CLEAR }); }
   // + : a szöveg előrébb ugrik (mintha korábban indult volna)
   function nudge(ms){
-    if(running()) kRef.child('startedAt').set(SV.increment(-ms));
-    else if(paused()) kRef.child('pausedAt').set(Math.max(0, state.pausedAt + ms / 1000));
+    if(running()) kRef.update({ startedAt: SV.increment(-ms), minT: null });
+    else if(paused()){
+      const p = Math.max(0, karaokeTime(state, serverNow()) + ms / 1000);
+      kRef.update({ pausedAt: p });
+    }
   }
 
   function updateButtons(){
@@ -312,7 +324,7 @@
   function fmt(t){ const s = Math.max(0, t); return Math.floor(s / 60) + ':' + (s % 60).toFixed(1).padStart(4, '0'); }
   function tick(){
     if(state && loadedUrl === state.url){
-      const t = running() ? (serverNow() - state.startedAt) / 1000 : paused() ? state.pausedAt : null;
+      const t = karaokeTime(state, serverNow());
       view.render(t);
       $('clock').textContent = t === null ? '' : fmt(t);
       if(chordList.length){
@@ -367,7 +379,7 @@
   let midiAccess = null;
   const onMidi = m => {
     const s = m.data[0];
-    if(s === 0xFA){ if(ready()) kRef.update({ startedAt: SV.TIMESTAMP, pausedAt: null }); }   // Start (elejéről)
+    if(s === 0xFA) restart();        // Start (elejéről)
     else if(s === 0xFB) resume();    // Continue (folytatás)
     else if(s === 0xFC) pause();     // Stop → szünet
   };
