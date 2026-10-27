@@ -44,6 +44,17 @@ function parseLrc(text){
     });
   });
   lines.sort((a, b) => a.t - b.t);
+  // Mikor ér véget egy sor? Az LRC csak a szótagok kezdetét tárolja, ezért becsüljük:
+  // utolsó szótag + a sor szótagjainak szokásos hossza × 1,5 (0,5 … 2 mp között)
+  lines.forEach((l, k) => {
+    const ts = l.syl.map(x => x.t), gaps = [];
+    for(let j = 1; j < ts.length; j++) gaps.push(ts[j] - ts[j - 1]);
+    gaps.sort((a, b) => a - b);
+    const med = gaps.length ? gaps[gaps.length >> 1] : 0.6;
+    let end = ts[ts.length - 1] + Math.min(2, Math.max(0.5, med * 1.5));
+    if(lines[k + 1]) end = Math.min(end, lines[k + 1].t);
+    l.end = end;
+  });
   // a dal hossza: [length:] mezőből, ha nincs, az utolsó szótag + 10 mp
   let length = meta.length ? parseLrcTime(meta.length) : null;
   if(!length && lines.length){ const l = lines[lines.length - 1]; length = l.syl[l.syl.length - 1].t + 10; }
@@ -154,7 +165,22 @@ function KaraokeView(box, opts){
         spans.forEach(sp => sp.classList.remove('on'));
         return;
       }
-      if(shownIdx !== i){ shownIdx = i; setLines(i - 1, i); }
+      // Hangszeres rész: a sor már véget ért, és a következő még messze van (> 2,5 mp szünet)
+      const cur = lrc.lines[i], nx = lrc.lines[i + 1];
+      if(nx && t > cur.end && nx.t - cur.end > 2.5){
+        const key = 'gap' + i;
+        if(shownIdx !== key){ shownIdx = key; setLines(i, i + 1); el.prev._txt = el.prev.textContent; }
+        const left = nx.t - t;
+        const cd = left <= KARAOKE_COUNTDOWN ? Math.ceil(left) : 0;
+        if(el.prev._cd !== cd){
+          el.prev._cd = cd;
+          if(cd) el.prev.innerHTML = '<span class="kv-cd">' + cd + '</span>';
+          else el.prev.textContent = el.prev._txt;
+        }
+        spans.forEach(sp => sp.classList.remove('on'));
+        return;
+      }
+      if(shownIdx !== i){ shownIdx = i; setLines(i - 1, i); el.prev._cd = null; }
       spans.forEach(sp => sp.classList.toggle('on', sp._t <= t));
     }
   };
