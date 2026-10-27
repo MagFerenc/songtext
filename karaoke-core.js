@@ -47,17 +47,39 @@ function parseLrc(text){
   return { meta, lines };
 }
 
-// Kirajzoló: a megadott dobozba négy sort tesz (előző, aktuális, következő, utána következő).
+// Kirajzoló: előző sor, aktuális sor, alatta a következő sorok.
+//   opts.next: hány következő sor látszódjon (szám), vagy 'auto' = amennyi kifér (min. opts.min)
 // Akkordokat csak akkor mutat, ha setChords()-szal kap — ezt csak a vezérlő hívja, a néző nem.
-function KaraokeView(box){
+function KaraokeView(box, opts){
+  opts = opts || {};
   box.classList.add('kv');
-  box.innerHTML =
-    '<div class="kv-prev"></div><div class="kv-cur"></div>' +
-    '<div class="kv-next"></div><div class="kv-next2"></div>';
-  const el = {
-    prev: box.querySelector('.kv-prev'), cur: box.querySelector('.kv-cur'),
-    next: box.querySelector('.kv-next'), next2: box.querySelector('.kv-next2')
-  };
+  box.innerHTML = '<div class="kv-prev"></div><div class="kv-cur"></div><div class="kv-nexts"></div>';
+  const el = { prev: box.querySelector('.kv-prev'), cur: box.querySelector('.kv-cur') };
+  const nextsBox = box.querySelector('.kv-nexts');
+  let nexts = [];
+  function makeNexts(n){
+    nextsBox.innerHTML = ''; nexts = [];
+    for(let k = 0; k < n; k++){
+      const d = document.createElement('div');
+      d.className = 'kv-next';
+      d.style.opacity = Math.max(0.35, 1 - k * 0.12).toFixed(2);
+      nextsBox.appendChild(d); nexts.push(d);
+    }
+  }
+  // 'auto': a rendelkezésre álló magasságból számolja, hány sor fér ki
+  function autoCount(){
+    const min = opts.min || 4, max = opts.max || 10;
+    const h = (opts.fitTo || box.parentElement).clientHeight;
+    if(!h) return min;
+    const probe = document.createElement('div'); probe.className = 'kv-next'; probe.textContent = 'Ág';
+    nextsBox.appendChild(probe);
+    const lh = probe.getBoundingClientRect().height || 30;
+    probe.remove();
+    const used = el.prev.getBoundingClientRect().height + el.cur.getBoundingClientRect().height * 2.2;
+    return Math.max(min, Math.min(max, Math.floor((h - used) / (lh * 1.18))));
+  }
+  let nextCount = opts.next === 'auto' ? (opts.min || 4) : (opts.next || 2);
+  makeNexts(nextCount);
   let lrc = null, chords = null, shownIdx = null, spans = [];
   const lineText = l => l ? l.syl.map(x => x.s).join('').trim() : '';
 
@@ -98,14 +120,23 @@ function KaraokeView(box){
     el.prev.classList.remove('kv-hasch');
     el.prev.textContent = lineText(lrc.lines[prevI]);
     spans = fill(el.cur, curI, true);
-    fill(el.next, curI + 1, false);
-    fill(el.next2, curI + 2, false);
+    nexts.forEach((d, k) => fill(d, curI + 1 + k, false));
+  }
+  if(opts.next === 'auto'){
+    const refit = () => {
+      const n = autoCount();
+      if(n !== nextCount){ nextCount = n; makeNexts(n); shownIdx = null; }
+    };
+    window.addEventListener('resize', refit);
+    window.addEventListener('orientationchange', () => setTimeout(refit, 300));
+    setTimeout(refit, 50);
+    box._refit = refit;
   }
 
   return {
-    load(parsed){ lrc = parsed; shownIdx = null; this.render(null); },
+    load(parsed){ lrc = parsed; shownIdx = null; if(box._refit) box._refit(); this.render(null); },
     setChords(list){ chords = list && list.length ? list : null; shownIdx = null; },
-    clear(){ lrc = null; chords = null; shownIdx = null; Object.values(el).forEach(e => { e.textContent = ''; e.classList.remove('kv-hasch'); }); },
+    clear(){ lrc = null; chords = null; shownIdx = null; [el.prev, el.cur, ...nexts].forEach(e => { e.textContent = ''; e.classList.remove('kv-hasch'); }); },
     // t: eltelt másodperc a dal indítása óta; null = még nem indult
     render(t){
       if(!lrc || !lrc.lines.length) return;

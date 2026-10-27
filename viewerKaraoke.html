@@ -26,15 +26,14 @@
     padding:14px 18px; background:#111827; font-size:1.1rem; font-weight:700;
     border-bottom:1px solid #1f2937; text-align:left;
   }
-  #lyrics{flex:1; display:flex; flex-direction:column; justify-content:center; padding:0 4vw; overflow:hidden;}
+  #lyrics{flex:1; display:flex; flex-direction:column; justify-content:flex-start; padding:4vh 2vw 0; overflow:hidden; min-height:0;}
   #msg{color:#9ca3af; font-size:1rem;}
 
   /* Karaoke szöveg */
-  .kv > div{min-height:1.35em; line-height:1.3; margin:.15em 0;}
-  .kv-prev{font-size:clamp(1.1rem,4.2vw,2.6rem); color:#6b7280;}
-  .kv-cur{font-size:clamp(1.6rem,6.5vw,4.2rem); font-weight:700; color:#f9fafb; margin:.35em 0 !important;}
-  .kv-next{font-size:clamp(1.1rem,4.2vw,2.6rem); color:#9ca3af;}
-  .kv-next2{font-size:clamp(1rem,3.8vw,2.3rem); color:#6b7280;}
+  .kv > div, .kv-nexts > div{min-height:1.3em; line-height:1.25; margin:.12em 0;}
+  .kv-prev{font-size:clamp(1rem,min(5vw,5.5vh),2.6rem); color:#6b7280;}
+  .kv-cur{font-size:clamp(1.4rem,min(7.2vw,8.5vh),4.2rem); font-weight:700; color:#f9fafb; margin:.3em 0 !important;}
+  .kv-next{font-size:clamp(1rem,min(5.3vw,5.5vh),2.6rem); color:#cbd5e1;}
   .kv-cur span{transition:color .08s;}
   .kv-cur span.on{color:#facc15;}
   .kv-cd{color:#facc15; font-weight:700; font-size:1.3em;}
@@ -99,7 +98,7 @@
   const serverNow = () => Date.now() + serverOffset;
 
   const $ = id => document.getElementById(id);
-  const view = KaraokeView($('kv'));
+  const view = KaraokeView($('kv'), { next: 'auto', min: 4, max: 16, fitTo: document.getElementById('lyrics') });
 
   // QR-kódok erre az oldalra
   const selfUrl = window.location.href.split('#')[0];
