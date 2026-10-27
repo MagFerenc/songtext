@@ -90,6 +90,13 @@
   #chordNext{font-size:1.2rem; color:var(--muted);}
   #chordSrc{font-size:.75rem; color:var(--muted); margin-left:auto;}
 
+  .tempoRow{display:flex; gap:8px; align-items:center; margin-top:10px;}
+  .tempoRow .tlabel{color:var(--muted); font-size:.9rem; flex:0 0 auto;}
+  .tempoRow button{flex:1; padding:10px;}
+  .tempoRow #tempoReset{flex:0 0 auto;}
+  #tempoVal{flex:1.2; text-align:center; font-weight:700; font-size:1.05rem; font-variant-numeric:tabular-nums;}
+  .tempoOrig{margin-top:6px; font-size:.82rem; color:var(--muted); display:flex; align-items:center; gap:6px; flex-wrap:wrap;}
+  .tempoOrig input{width:80px; padding:4px 6px; border-radius:6px; border:1px solid #374151; background:#111827; color:var(--text);}
   .hint{margin-top:10px; font-size:.8rem; color:var(--muted); line-height:1.5;}
   .hint kbd{background:#374151; border-radius:4px; padding:1px 5px; font-family:inherit; color:#e5e7eb;}
   .opt{margin-top:14px; font-size:.9rem; color:#e5e7eb; display:flex; align-items:center; gap:8px;}
@@ -144,6 +151,15 @@
       <button id="fwdBtn" disabled>+ 0,25 mp<span class="btnHint">szöveg előrébb</span></button>
     </div>
 
+    <div class="tempoRow">
+      <span class="tlabel">Tempó</span>
+      <button id="tempoDown" disabled>− lassabb</button>
+      <span id="tempoVal">—</span>
+      <button id="tempoUp" disabled>+ gyorsabb</button>
+      <button id="tempoReset" disabled title="vissza az eredeti tempóra">↺</button>
+    </div>
+    <div class="tempoOrig">Eredeti tempó: <input type="number" id="origBpm" min="30" max="300" placeholder="BPM"> BPM <span id="origBpmHint"></span></div>
+
     <div class="status"><span id="status">Nincs kiválasztott dal</span><span id="clock"></span></div>
 
     <div id="chordBar"><span id="chordNow"></span><span id="chordNext"></span><span id="chordSrc"></span></div>
@@ -154,7 +170,8 @@
       <kbd>Szóköz</kbd> <kbd>Enter</kbd> <kbd>PageDown</kbd> = Start / Szünet / Folytatás ·
       <kbd>Esc</kbd> <kbd>PageUp</kbd> = Stop ·
       <kbd>←</kbd> <kbd>→</kbd> = előző / következő dal ·
-      <kbd>↑</kbd> <kbd>↓</kbd> = szöveg előrébb / későbbre (0,25 mp)
+      <kbd>↑</kbd> <kbd>↓</kbd> = szöveg előrébb / későbbre (0,25 mp) ·
+      <kbd>+</kbd> <kbd>−</kbd> = tempó
     </div>
     <label class="opt"><input type="checkbox" id="midiChk"> Indítás MIDI Start/Stop jelre (USB-n csatlakoztatott hangszer/lejátszó) <span id="midiState"></span></label>
 
@@ -177,9 +194,9 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-<script src="firebase-config.js?v=202610271805"></script>
-<script src="karaoke-songs.js?v=202610271805"></script>
-<script src="karaoke-core.js?v=202610271805"></script>
+<script src="firebase-config.js?v=202610271809"></script>
+<script src="karaoke-songs.js?v=202610271809"></script>
+<script src="karaoke-core.js?v=202610271809"></script>
 <script>
   firebase.initializeApp(firebaseConfig);
   const db = firebase.database();
@@ -285,25 +302,71 @@
   function pause(){
     if(!running()) return;
     const at = serverNow() + D;
-    kRef.update({ pauseAt: at, pausedAt: (at - state.startedAt) / 1000, minT: null });
+    kRef.update({ pauseAt: at, pausedAt: (at - state.startedAt) / 1000 * rate(), minT: null });
   }
   // Folytatás: D ms múlva indul tovább ugyanonnan
   function resume(){
     if(!paused()) return;
     const p = karaokeTime(state, serverNow());
-    kRef.update({ startedAt: Math.round(serverNow() + D - p * 1000), pauseAt: null, pausedAt: null, minT: p });
+    kRef.update({ startedAt: Math.round(serverNow() + D - p * 1000 / rate()), pauseAt: null, pausedAt: null, minT: p });
   }
   // Start gomb / Szóköz: áll → indul, fut → szünet, szünet → folytatás
   function toggle(){ if(running()) pause(); else if(paused()) resume(); else start(); }
   function stop(){ if(active()) kRef.update({ startedAt: null, ...CLEAR }); }
   // + : a szöveg előrébb ugrik (mintha korábban indult volna)
   function nudge(ms){
-    if(running()) kRef.update({ startedAt: SV.increment(-ms), minT: null });
+    if(running()) kRef.update({ startedAt: SV.increment(-ms / rate()), minT: null });
     else if(paused()){
       const p = Math.max(0, karaokeTime(state, serverNow()) + ms / 1000);
       kRef.update({ pausedAt: p });
     }
   }
+
+  // ---- Tempó ----
+  //  A dal eredeti tempója (BPM) az LRC [tempo:] mezőjéből jön; ha nincs benne, a vezérlőn
+  //  egyszer be lehet írni (dalonként megjegyzi ezen a gépen/telefonon).
+  const rate = () => (state && state.rate) || 1;
+  let lrcMeta = {};
+  const bpmKey = () => state ? 'karaokeBpm:' + state.id : '';
+  function origBpm(){
+    const m = parseFloat(lrcMeta.tempo);
+    if(m > 0) return m;
+    try{ const v = parseFloat(localStorage.getItem(bpmKey())); return v > 0 ? v : null; }catch(e){ return null; }
+  }
+  function setRate(r){
+    if(!state || !state.url) return;
+    r = Math.min(1.5, Math.max(0.5, Math.round(r * 10000) / 10000));
+    if(running()){
+      // a pozíció ne ugorjon: az indulási időt átszámoljuk az új tempóhoz
+      const now = serverNow(), p = karaokeTime(state, now);
+      kRef.update({ rate: r, startedAt: Math.round(now - p * 1000 / r), minT: null });
+    } else kRef.update({ rate: r });
+  }
+  function tempoStep(dir){
+    const o = origBpm();
+    if(o){ const bpm = Math.round(o * rate()) + dir; setRate(bpm / o); }
+    else setRate((Math.round(rate() * 100) + dir) / 100);
+  }
+  function updateTempo(){
+    const o = origBpm(), r = rate();
+    let txt;
+    if(o) txt = Math.round(o * r) + ' BPM' + (Math.abs(r - 1) < 1e-4 ? ' (eredeti)' : ' (eredeti: ' + Math.round(o) + ')');
+    else txt = Math.round(r * 100) + '%' + (Math.abs(r - 1) < 1e-4 ? ' (eredeti)' : '');
+    $('tempoVal').textContent = txt;
+    $('tempoVal').style.color = Math.abs(r - 1) < 1e-4 ? '' : 'var(--yellow)';
+    const inp = $('origBpm');
+    if(document.activeElement !== inp) inp.value = o ? Math.round(o) : '';
+    inp.disabled = !!(parseFloat(lrcMeta.tempo) > 0);
+    $('origBpmHint').textContent = parseFloat(lrcMeta.tempo) > 0 ? '(a fájlból)' : (o ? '(beírva)' : '← írd be a szintiről, és BPM-ben lép');
+  }
+  $('tempoDown').addEventListener('click', () => tempoStep(-1));
+  $('tempoUp').addEventListener('click', () => tempoStep(+1));
+  $('tempoReset').addEventListener('click', () => setRate(1));
+  $('origBpm').addEventListener('change', () => {
+    const v = parseFloat($('origBpm').value);
+    try{ if(v > 0) localStorage.setItem(bpmKey(), String(v)); else localStorage.removeItem(bpmKey()); }catch(e){}
+    updateTempo();
+  });
 
   function updateButtons(){
     const ready = !!(state && state.url && loadedUrl === state.url);
@@ -312,6 +375,8 @@
     $('stopBtn').disabled  = !active();
     $('backBtn').disabled  = !active();
     $('fwdBtn').disabled   = !active();
+    ['tempoDown', 'tempoUp', 'tempoReset'].forEach(id => $(id).disabled = !ready);
+    updateTempo();
   }
 
   // A Firebase-ben lévő állapot a mérvadó — így ha két eszközről vezérelnek, mindkettő ugyanazt mutatja
@@ -325,11 +390,11 @@
     $('status').querySelector('b').textContent = state.title || '';
     if(state.url !== loadedUrl){
       const my = ++loadToken, url = state.url;
-      loadedUrl = null; view.clear(); chordList = []; $('chordBar').style.display = 'none'; $('previewMsg').textContent = 'Betöltés…';
+      loadedUrl = null; view.clear(); chordList = []; lrcMeta = {}; $('chordBar').style.display = 'none'; $('previewMsg').textContent = 'Betöltés…';
       Promise.all([fetchLrc(url), fetchChords(url)]).then(([lrc, ch]) => {
         if(my !== loadToken) return;
         $('previewMsg').textContent = lrc.lines.length ? '' : 'A dalszöveg üres.';
-        chordList = ch; view.setChords(ch); songLength = lrc.length;
+        chordList = ch; view.setChords(ch); songLength = lrc.length; lrcMeta = lrc.meta || {};
         $('chordBar').style.display = ch.length ? 'flex' : 'none';
         view.load(lrc); loadedUrl = url; updateButtons();
       }).catch(e => {
@@ -394,6 +459,10 @@
         e.preventDefault(); nudge(250); break;
       case 'ArrowDown':                        // szöveg későbbre
         e.preventDefault(); nudge(-250); break;
+      case '+': case '=':
+        e.preventDefault(); tempoStep(+1); break;
+      case '-': case '_':
+        e.preventDefault(); tempoStep(-1); break;
       case 'Escape': case 'PageUp':
         e.preventDefault(); stop(); break;
     }

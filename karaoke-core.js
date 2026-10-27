@@ -224,10 +224,11 @@ function fetchChords(url){
 //   startedAt: indulás (szerveridő, ms)
 //   pauseAt / pausedAt: ütemezett szünet — eddig a szerveridőig fut, utána pausedAt-nál áll
 //   minT: folytatás után ennél nem mutat korábbit (így nincs visszaugrás a hálózati késés miatt)
+//   rate: tempó szorzó (1 = eredeti; 1.05 = 5%-kal gyorsabb) — a vezérlőn BPM-ben állítható
 const KARAOKE_SYNC_DELAY = 400;   // ms — ennyivel előre ütemezzük a szünetet/folytatást
 function karaokeTime(state, now){
   if(!state || !state.startedAt) return null;
-  let t = (now - state.startedAt) / 1000;
+  let t = (now - state.startedAt) / 1000 * (state.rate || 1);
   if(typeof state.pausedAt === 'number' && state.pauseAt) t = Math.min(t, state.pausedAt);
   if(typeof state.minT === 'number') t = Math.max(t, state.minT);
   return t;

@@ -94,6 +94,10 @@ A vezérlő lenyílójában a mappák fastruktúraként látszanak, a „Dal sz�
 3. Ha a szöveg elcsúszik, a **± 0,25 mp** gombokkal (vagy a ↑ ↓ nyilakkal) igazíts.
 4. A **Start** gomb (vagy Szóköz) futás közben **szünetet** tart, újabb nyomásra onnan **folytatja**.
 5. **■ Stop** (vagy Esc / PageUp) visszaállítja a dal elejére.
+6. **Tempó:** ha a szintin gyorsabbra/lassabbra állítod a dalt, a vezérlőn a **− lassabb / + gyorsabb**
+   gombokkal (vagy a + / − billentyűkkel) ugyanannyi BPM-mel kell állítani; **↺** = vissza az eredetire.
+   Ehhez kell a dal eredeti tempója: az új átalakítóval készült LRC-kben benne van, a régieknél
+   egyszer be kell írni az „Eredeti tempó” mezőbe (a szinti kijelzőjéről) — a vezérlő megjegyzi.
 
 Ha a MIDI-t USB-n csatlakoztatott hangszer vagy lejátszó játssza, a „MIDI Start/Stop jelre”
 jelölővel a vezérlő magától indul és áll le (Chrome / Edge böngészőben).
