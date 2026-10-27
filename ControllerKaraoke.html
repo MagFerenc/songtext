@@ -80,6 +80,11 @@
   .kv-ch{position:absolute; left:0; bottom:100%; font-style:normal; font-weight:800; font-size:.85em;
          color:#ef4444; white-space:nowrap; line-height:1.2;}
   .kv-cur .kv-ch{font-size:.7em;}
+  /* Akkordsor (hangszeres rész): csak akkordok, kiemelés ugyanúgy halad rajtuk */
+  .kv-chline span{color:#ef4444; font-weight:800; margin:0 .9em; opacity:.75;}
+  .kv-chline span.on{opacity:1; color:#f87171; text-decoration:underline; text-underline-offset:.2em;}
+  .kv-cur.kv-chline span{opacity:1; color:#9ca3af;}
+  .kv-cur.kv-chline span.on{color:#ef4444;}
   #chordBar{display:none; margin-top:12px; padding:10px 14px; border-radius:10px; background:#0b1220;
             border:1px solid #374151; align-items:baseline; gap:14px; justify-content:center;}
   #chordNow{font-size:2.2rem; font-weight:800; color:#ef4444; min-width:3ch; text-align:right;}

@@ -94,8 +94,31 @@ function KaraokeView(box, opts){
   }
   let nextCount = opts.next === 'auto' ? (opts.min || 4) : (opts.next || 2);
   makeNexts(nextCount);
-  let lrc = null, chords = null, shownIdx = null, spans = [];
-  const lineText = l => l ? l.syl.map(x => x.s).join('').trim() : '';
+  let base = null, lrc = null, chords = null, shownIdx = null, spans = [];
+
+  // Csak a vezérlőn (ha van akkord): a hangszeres részek (eleje, versszakok közötti rész, vége)
+  // akkordjai külön "akkordsorokként" a szövegsorok közé kerülnek, 4 akkord / sor
+  function rebuild(){
+    if(!base){ lrc = null; return; }
+    if(!chords){ lrc = base; return; }
+    const L = base.lines, extra = [];
+    const chordLines = (from, to) => {
+      let cs = chords.filter(c => c.t >= from - 0.05 && c.t < to - 0.15 && c.c !== 'N.C.');
+      const active = chords.filter(c => c.t < from - 0.05).pop();
+      if(active && active.c !== 'N.C.' && (!cs.length || cs[0].t > from + 1)) cs = [{ t: from, c: active.c }, ...cs];
+      for(let k = 0; k < cs.length; k += 4){
+        const row = cs.slice(k, k + 4);
+        extra.push({ t: row[0].t, end: (cs[k + 4] ? cs[k + 4].t : to), chordOnly: true, syl: row.map(c => ({ t: c.t, s: c.c })) });
+      }
+    };
+    if(L.length){
+      chordLines(0, L[0].t);                                           // eleje
+      L.forEach((l, k) => { const nx = L[k + 1]; if(nx && nx.t - l.end > 2.5) chordLines(l.end, nx.t); });
+      chordLines(L[L.length - 1].end, base.length || Infinity);       // vége
+    }
+    lrc = Object.assign({}, base, { lines: [...L, ...extra].sort((a, b) => a.t - b.t) });
+  }
+  const lineText = l => l ? (l.chordOnly ? l.syl.map(x => x.s).join('    ') : l.syl.map(x => x.s).join('').trim()) : '';
 
   // Melyik akkord melyik szótag fölé kerül: a sor első szótagja fölé a
   // pillanatnyi akkord, a többi fölé csak akkor, ha ott váltás van.
@@ -118,10 +141,11 @@ function KaraokeView(box, opts){
   function fill(target, idx, keepSpans){
     const l = lrc.lines[idx];
     target.innerHTML = '';
-    target.classList.toggle('kv-hasch', !!chords);
+    target.classList.toggle('kv-hasch', !!chords && !(l && l.chordOnly));
+    target.classList.toggle('kv-chline', !!(l && l.chordOnly));
     if(!l) return [];
     if(!chords && !keepSpans){ target.textContent = lineText(l); return []; }
-    const cs = chordsFor(l, lrc.lines[idx + 1]), sp = [];
+    const cs = l.chordOnly ? l.syl.map(() => []) : chordsFor(l, lrc.lines[idx + 1]), sp = [];
     l.syl.forEach((x, k) => {
       const s = document.createElement('span');
       s.textContent = k === l.syl.length - 1 ? x.s.replace(/\s+$/, '') : x.s; s._t = x.t;
@@ -148,9 +172,9 @@ function KaraokeView(box, opts){
   }
 
   return {
-    load(parsed){ lrc = parsed; shownIdx = null; if(box._refit) box._refit(); this.render(null); },
-    setChords(list){ chords = list && list.length ? list : null; shownIdx = null; },
-    clear(){ lrc = null; chords = null; shownIdx = null; [el.prev, el.cur, ...nexts].forEach(e => { e.textContent = ''; e.classList.remove('kv-hasch'); }); },
+    load(parsed){ base = parsed; rebuild(); shownIdx = null; if(box._refit) box._refit(); this.render(null); },
+    setChords(list){ chords = list && list.length ? list : null; rebuild(); shownIdx = null; },
+    clear(){ base = null; lrc = null; chords = null; shownIdx = null; [el.prev, el.cur, ...nexts].forEach(e => { e.textContent = ''; e.classList.remove('kv-hasch'); }); },
     // t: eltelt másodperc a dal indítása óta; null = még nem indult
     render(t){
       if(!lrc || !lrc.lines.length) return;
