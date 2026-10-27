@@ -84,11 +84,11 @@
   .kv-cur .kv-ch{transition:color .1s;}
   .kv-cur span.on .kv-ch{color:#6b7280;}                               /* már elmúlt: szürke */
   .kv-cur span.kv-now .kv-ch{color:#dc2626; font-weight:900;}          /* most szól: sötét, erős piros */
-  #chordBar{display:none; margin-top:12px; padding:10px 14px; border-radius:10px; background:#0b1220;
-            border:1px solid #374151; align-items:baseline; gap:14px; justify-content:center;}
-  #chordNow{font-size:2.2rem; font-weight:800; color:#ef4444; min-width:3ch; text-align:right;}
-  #chordNext{font-size:1.2rem; color:var(--muted);}
-  #chordSrc{font-size:.75rem; color:var(--muted); margin-left:auto;}
+  /* Akkordsor a hangszeres részeknél: akkord + idő, ugyanazokkal a színekkel */
+  .kv-chline span{color:#fca5a5; font-weight:800; margin:0 .5em; white-space:nowrap; display:inline-block;}
+  .kv-chline .kv-tm{font-size:.55em; font-weight:500; color:#9ca3af; margin-left:.25em; vertical-align:super;}
+  .kv-cur.kv-chline span.on{color:#6b7280;}
+  .kv-cur.kv-chline span.kv-now{color:#dc2626; font-weight:900;}
 
   .tempoRow{display:flex; gap:8px; align-items:center; margin-top:10px;}
   .tempoRow .tlabel{color:var(--muted); font-size:.9rem; flex:0 0 auto;}
@@ -162,7 +162,6 @@
 
     <div class="status"><span id="status">Nincs kiválasztott dal</span><span id="clock"></span></div>
 
-    <div id="chordBar"><span id="chordNow"></span><span id="chordNext"></span><span id="chordSrc"></span></div>
     <div id="previewBox"><div id="kv"></div><div id="previewMsg"></div></div>
 
     <div class="hint">
@@ -194,9 +193,9 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-<script src="firebase-config.js?v=202610271809"></script>
-<script src="karaoke-songs.js?v=202610271809"></script>
-<script src="karaoke-core.js?v=202610271809"></script>
+<script src="firebase-config.js?v=202610271813"></script>
+<script src="karaoke-songs.js?v=202610271813"></script>
+<script src="karaoke-core.js?v=202610271813"></script>
 <script>
   firebase.initializeApp(firebaseConfig);
   const db = firebase.database();
@@ -390,12 +389,11 @@
     $('status').querySelector('b').textContent = state.title || '';
     if(state.url !== loadedUrl){
       const my = ++loadToken, url = state.url;
-      loadedUrl = null; view.clear(); chordList = []; lrcMeta = {}; $('chordBar').style.display = 'none'; $('previewMsg').textContent = 'Betöltés…';
+      loadedUrl = null; view.clear(); chordList = []; lrcMeta = {}; $('previewMsg').textContent = 'Betöltés…';
       Promise.all([fetchLrc(url), fetchChords(url)]).then(([lrc, ch]) => {
         if(my !== loadToken) return;
         $('previewMsg').textContent = lrc.lines.length ? '' : 'A dalszöveg üres.';
         chordList = ch; view.setChords(ch); songLength = lrc.length; lrcMeta = lrc.meta || {};
-        $('chordBar').style.display = ch.length ? 'flex' : 'none';
         view.load(lrc); loadedUrl = url; updateButtons();
       }).catch(e => {
         if(my !== loadToken) return;
@@ -416,13 +414,6 @@
       if(t !== null && songLength && t > songLength + 1 && running()){
         if(!autoStopped){ autoStopped = true; stop(); }
       } else if(t === null) autoStopped = false;
-      if(chordList.length){
-        const tt = t === null ? -1 : t;
-        let i = -1; for(let k = 0; k < chordList.length; k++){ if(chordList[k].t <= tt + 0.05) i = k; else break; }
-        const cur = i >= 0 ? chordList[i] : null, nx = chordList[i + 1];
-        $('chordNow').textContent = cur ? cur.c : '–';
-        $('chordNext').textContent = nx ? '→ ' + nx.c + (t !== null ? '  (' + Math.max(0, nx.t - t).toFixed(1) + ' mp)' : '') : '';
-      }
     } else $('clock').textContent = '';
     requestAnimationFrame(tick);
   }
