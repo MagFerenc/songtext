@@ -75,19 +75,15 @@
   .kv-cur span.on{color:var(--yellow);}
   .kv-cd{color:var(--yellow); font-weight:700; font-size:1.4em;}
   /* Akkordok a szótagok fölött (csak itt, a nézőknél nem) */
-  .kv-hasch{padding-top:1.3em;}
+  .kv-hasch{padding-top:1.5em;}
   .kv-w{position:relative;}
-  .kv-ch{position:absolute; left:0; bottom:100%; font-style:normal; font-weight:800; font-size:.85em;
-         color:#ef4444; white-space:nowrap; line-height:1.2;}
-  .kv-cur .kv-ch{font-size:.7em;}
+  .kv-ch{position:absolute; left:0; bottom:100%; font-style:normal; font-weight:800; font-size:1em;
+         color:#fca5a5; white-space:nowrap; line-height:1.2;}          /* még hátralévő: világos */
+  .kv-cur .kv-ch{font-size:.8em;}
   /* A szöveg fölötti akkordok az aktuális sorban: a még nem játszott halványabb, a játszott élénk */
-  .kv-cur .kv-ch{opacity:.5; transition:opacity .1s, color .1s;}
-  .kv-cur span.on .kv-ch{opacity:1; color:#f87171;}
-  /* Akkordsor (hangszeres rész): akkord + idő egy sorban, a kiemelés halad rajta */
-  .kv-chline span{color:#ef4444; font-weight:800; margin:0 .5em; white-space:nowrap; display:inline-block;}
-  .kv-chline .kv-tm{font-size:.55em; font-weight:500; color:#9ca3af; margin-left:.25em; vertical-align:super;}
-  .kv-cur.kv-chline span{opacity:.5;}
-  .kv-cur.kv-chline span.on{opacity:1; color:#f87171;}
+  .kv-cur .kv-ch{transition:color .1s;}
+  .kv-cur span.on .kv-ch{color:#6b7280;}                               /* már elmúlt: szürke */
+  .kv-cur span.kv-now .kv-ch{color:#dc2626; font-weight:900;}          /* most szól: sötét, erős piros */
   #chordBar{display:none; margin-top:12px; padding:10px 14px; border-radius:10px; background:#0b1220;
             border:1px solid #374151; align-items:baseline; gap:14px; justify-content:center;}
   #chordNow{font-size:2.2rem; font-weight:800; color:#ef4444; min-width:3ch; text-align:right;}
@@ -181,9 +177,9 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-<script src="firebase-config.js?v=202610271802"></script>
-<script src="karaoke-songs.js?v=202610271802"></script>
-<script src="karaoke-core.js?v=202610271802"></script>
+<script src="firebase-config.js?v=202610271805"></script>
+<script src="karaoke-songs.js?v=202610271805"></script>
+<script src="karaoke-core.js?v=202610271805"></script>
 <script>
   firebase.initializeApp(firebaseConfig);
   const db = firebase.database();
