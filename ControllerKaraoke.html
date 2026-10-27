@@ -75,7 +75,7 @@
   .kv-cur span.on{color:var(--yellow);}
   .kv-cd{color:var(--yellow); font-weight:700; font-size:1.4em;}
   /* Akkordok a szótagok fölött (csak itt, a nézőknél nem) */
-  .kv-hasch{padding-top:1.7em;}
+  .kv-hasch{padding-top:.2em; line-height:2.75 !important;}   /* minden (tördelt) sor fölött hely az akkordnak */
   .kv-w{position:relative;}
   .kv-ch{position:absolute; left:0; bottom:100%; font-style:normal; font-weight:800; font-size:1.15em;
          color:#fca5a5; white-space:nowrap; line-height:1.2;}          /* még hátralévő: világos */
@@ -85,6 +85,7 @@
   .kv-cur span.on .kv-ch{color:#6b7280;}                               /* már elmúlt: szürke */
   .kv-cur span.kv-now .kv-ch{color:#dc2626; font-weight:900;}          /* most szól: sötét, erős piros */
   /* Akkordsor a hangszeres részeknél: akkord + idő, ugyanazokkal a színekkel */
+  .kv-chline{margin-bottom:.45em !important;}
   .kv-chline span{color:#fca5a5; font-weight:800; margin:0 .5em; white-space:nowrap; display:inline-block;}
   .kv-chline .kv-tm{font-size:.55em; font-weight:500; color:#9ca3af; margin-left:.25em; vertical-align:super;}
   .kv-cur.kv-chline span.on{color:#6b7280;}
@@ -190,9 +191,9 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-<script src="firebase-config.js?v=202610271824"></script>
-<script src="karaoke-songs.js?v=202610271824"></script>
-<script src="karaoke-core.js?v=202610271824"></script>
+<script src="firebase-config.js?v=202610271834"></script>
+<script src="karaoke-songs.js?v=202610271834"></script>
+<script src="karaoke-core.js?v=202610271834"></script>
 <script>
   firebase.initializeApp(firebaseConfig);
   const db = firebase.database();

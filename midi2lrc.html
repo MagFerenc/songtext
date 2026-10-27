@@ -180,6 +180,10 @@ function guessFlat(H){ // b-s vagy #-es írásmód a hangkészlet alapján
 }
 
 // ---------- cím / előadó ----------
+// Régi "magyarított" Latin-1 betűtípusok jelei → magyar betűk (õ/ô → ő, û → ű)
+const fixHu=t=>t.replace(/[õô]/g,'ő').replace(/[ÕÔ]/g,'Ő').replace(/û/g,'ű').replace(/Û/g,'Ű');
+// Sérült-e a fájlnév kódolása? (� jel, vagy ékezet helyett aláhúzás/kérdőjel, vagy DOS-os keretrajzoló jelek)
+const brokenName=n=>/\uFFFD|[\u2500-\u257F\u2580-\u259F]|[a-z]__[a-z]|[A-Za-z]\?[a-z]/i.test(n)||/[a-zA-Z]_[a-zA-Z]/.test(n)&&!/ /.test(n);
 function meta(ev,fname){
   let title='',artist='';
   const txt=ev.filter(e=>e.ty===1).map(e=>e.tx);
@@ -189,10 +193,16 @@ function meta(ev,fname){
   const atT=txt.filter(x=>x.startsWith('@T')).map(x=>x.slice(2).trim()).filter(Boolean);
   if(!title&&atT[0])title=atT[0];
   if(!artist&&atT[1])artist=atT[1];
-  const base=fname.replace(/(\.(mid|midi|kar))+$/i,'');
-  // nincs cím a fájlban → a fájlnév marad
-  if(!title)return {title:base,artist:'',fromFile:true};
-  return {title:title.trim(),artist:artist.trim()};
+  let base=fname.replace(/(\.(mid|midi|kar))+$/i,'');
+  // nincs cím a fájlban → a fájlnév marad; de ha a fájlnév kódolása sérült, a MIDI sávneve
+  // (ha értelmes szöveg) jobb cím
+  if(!title){
+    const tn=(ev.find(e=>e.ty===3&&e.trk===0&&e.tx.trim())||{}).tx||'';
+    const tnOk=/[a-záéíóöőúüű]{3}/i.test(tn)&&!/^(track|untitled|sequence|seq|piano|melody|dallam|midi)\b/i.test(tn.trim());
+    if(brokenName(base)&&tnOk)return {title:fixHu(tn.trim()).replace(/_/g,' ').replace(/\s+/g,' '),artist:'',fromFile:true};
+    return {title:fixHu(base).replace(/_+/g,' ').replace(/\s+/g,' ').trim(),artist:'',fromFile:true};
+  }
+  return {title:fixHu(title.trim()),artist:fixHu(artist.trim())};
 }
 
 // ---------- szótagok ----------
@@ -210,7 +220,7 @@ function toLines(syl){
   const lines=[];let cur=[];
   const flush=()=>{if(cur.length){lines.push(cur);cur=[]}};
   for(const {t,s:raw} of syl){
-    let s=raw.replace(/_/g,' ');   // néhány karaoke-fájl szóköz helyett aláhúzást használ
+    let s=fixHu(raw.replace(/_/g,' '));   // aláhúzás → szóköz; õ/ô/û → ő/ű
     if(hasBreaks){
       if(/^[\/\\]/.test(s)){flush();s=s.replace(/^[\/\\]+/,'');}
       const endBr=/[\r\n]\s*$/.test(s);
