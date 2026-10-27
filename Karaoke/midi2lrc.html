@@ -113,7 +113,7 @@ function makeLrc(m,lines){
   for(const l of lines)out.push('['+ts(l[0].t)+']'+l.map(x=>'<'+ts(x.t)+'>'+x.s).join('').trimEnd());
   return out.join('\r\n')+'\r\n';
 }
-const safe=n=>n.replace(/[\\\/:*?"<>|]/g,'').replace(/\s+/g,' ').trim()||'nevtelen';
+const safe=n=>n.replace(/[\\\/:*?"<>|#%]/g,'').replace(/\s+/g,' ').trim()||'nevtelen';
 const baseName=m=>m.fromFile?m.title:safe(m.artist?m.artist+' - '+m.title:m.title);
 
 // ---------- felület ----------

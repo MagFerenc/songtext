@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Karaoke vezérlő</title>
+<style>
+  :root{
+    --bg:#111827; --panel:#1f2937; --accent:#22c55e; --text:#f9fafb; --muted:#9ca3af; --yellow:#facc15;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;
+    background:var(--bg); color:var(--text); min-height:100vh;
+    display:flex; align-items:center; justify-content:center; padding:20px;
+  }
+  .card{
+    background:var(--panel); border-radius:16px; padding:28px;
+    width:100%; max-width:700px; box-shadow:0 10px 30px rgba(0,0,0,.4);
+  }
+  @media (max-width: 600px){
+    body{padding:6px;}
+    .card{padding:12px; border-radius:10px;}
+  }
+  h1{font-size:1.4rem; margin:0 0 4px;}
+  .titleRow{display:flex; align-items:flex-start; justify-content:space-between; gap:10px;}
+  #categoryBadge{
+    flex:0 0 auto; margin-top:2px; padding:5px 12px; border-radius:999px;
+    background:#111827; border:1px solid var(--accent); color:var(--accent);
+    font-size:.85rem; font-weight:600; white-space:nowrap; display:none;
+  }
+  p.sub{color:var(--muted); margin:0 0 20px; font-size:.9rem;}
+  label{display:block; font-size:.85rem; color:var(--muted); margin:16px 0 6px;}
+  select, input[type=number]{
+    width:100%; padding:10px; border-radius:8px; border:1px solid #374151;
+    background:#111827; color:var(--text); font-size:1rem;
+  }
+  .row{display:flex; gap:10px; margin-top:10px;}
+  .row > *{flex:1; min-width:0;}
+  .btnHint{
+    display:block; margin-top:3px; font-size:.78rem; font-weight:500; color:#e5e7eb;
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  }
+  button{
+    cursor:pointer; border:none; border-radius:8px; padding:12px 14px;
+    font-size:1rem; font-weight:600; background:#374151; color:var(--text);
+    transition:background .15s;
+  }
+  button:hover{background:#4b5563;}
+  button.primary{background:var(--accent); color:#052e16;}
+  button.primary:hover{background:#16a34a;}
+  button.big{font-size:1.25rem; padding:16px;}
+  button:disabled{opacity:.4; cursor:default;}
+  .numrow{display:flex; gap:10px;}
+  .numrow input{flex:1;}
+  .numrow button{flex:0 0 auto;}
+  .status{
+    margin-top:22px; padding:14px; border-radius:10px; background:#111827;
+    border:1px solid #374151; font-size:.95rem; display:flex; justify-content:space-between; gap:10px;
+  }
+  .status b{color:var(--accent);}
+  #clock{font-variant-numeric:tabular-nums; color:var(--yellow); font-weight:700;}
+
+  /* Előnézet: ugyanaz, amit a nézők látnak */
+  #previewBox{
+    margin-top:16px; border-radius:10px; border:1px solid #374151; background:#0b1220;
+    padding:18px 12px; text-align:center; min-height:220px;
+    display:flex; flex-direction:column; justify-content:center;
+  }
+  #previewMsg{color:var(--muted); font-size:.95rem;}
+  .kv > div{min-height:1.35em; line-height:1.3; margin:.1em 0;}
+  .kv-prev{font-size:1.05rem; color:#6b7280;}
+  .kv-cur{font-size:1.6rem; font-weight:700; color:#f9fafb; margin:.3em 0 !important;}
+  .kv-next{font-size:1.05rem; color:#9ca3af;}
+  .kv-next2{font-size:.95rem; color:#6b7280;}
+  .kv-cur span.on{color:var(--yellow);}
+  .kv-cd{color:var(--yellow); font-weight:700; font-size:1.4em;}
+
+  .hint{margin-top:10px; font-size:.8rem; color:var(--muted); line-height:1.5;}
+  .hint kbd{background:#374151; border-radius:4px; padding:1px 5px; font-family:inherit; color:#e5e7eb;}
+  .opt{margin-top:14px; font-size:.9rem; color:#e5e7eb; display:flex; align-items:center; gap:8px;}
+  #midiState{color:var(--muted); font-size:.8rem;}
+
+  .qrSection{margin-top:22px; padding-top:18px; border-top:1px solid #374151; text-align:center;}
+  .qrSection p{font-size:.95rem; color:var(--text); font-weight:600; margin:0 0 12px;}
+  #qrBox{background:#fff; padding:10px; border-radius:12px; display:inline-block; cursor:pointer;}
+  #bigQrOverlay{
+    display:none; position:fixed; inset:0; z-index:100;
+    background:rgba(17,24,39,.94); cursor:pointer;
+    flex-direction:column; align-items:center; justify-content:center; gap:14px;
+  }
+  #bigQrOverlay.open{display:flex;}
+  #bigQr{background:#fff; padding:16px; border-radius:16px; line-height:0;}
+  #bigQr img, #bigQr canvas{display:block; width:min(80vw, 70vh); height:min(80vw, 70vh);}
+  #bigQrOverlay p{margin:0; font-size:1rem; color:var(--text); font-weight:600;}
+  #bigQrOverlay small{color:var(--muted); font-size:.8rem;}
+  #qrLink{display:block; margin-top:8px; font-size:.75rem; color:#93c5fd; word-break:break-all;}
+  .tools{margin-top:16px; font-size:.85rem; text-align:center;}
+  .tools a{color:#93c5fd; text-decoration:none;}
+  .tools a:hover{text-decoration:underline;}
+</style>
+</head>
+<body>
+  <div class="card">
+    <div class="titleRow">
+      <h1>🎤 Karaoke vezérlő</h1>
+      <span id="categoryBadge"></span>
+    </div>
+    <p class="sub">Válaszd ki a dalt, majd indítsd el a zenével egyszerre — a nézők telefonján szinkronban fut a szöveg.</p>
+
+    <select id="songSelect" style="margin-top:4px;"></select>
+
+    <div class="row">
+      <button id="prevBtn">← Előző<span class="btnHint" id="prevHint"></span></button>
+      <button id="nextBtn">Következő →<span class="btnHint" id="nextHint"></span></button>
+    </div>
+
+    <div class="numrow" style="align-items:center; margin-top:12px;">
+      <label for="songNum" style="margin:0; flex:0 0 auto; white-space:nowrap;">Dal száma</label>
+      <input type="number" id="songNum" min="1" placeholder="pl. 201">
+      <button id="selectNumBtn" class="primary">Kiválaszt</button>
+    </div>
+
+    <div class="row" style="margin-top:18px;">
+      <button id="startBtn" class="primary big" disabled>▶ Start</button>
+      <button id="stopBtn" class="big" disabled>■ Stop</button>
+    </div>
+    <div class="row">
+      <button id="backBtn" disabled>− 0,25 mp<span class="btnHint">szöveg későbbre</span></button>
+      <button id="fwdBtn" disabled>+ 0,25 mp<span class="btnHint">szöveg előrébb</span></button>
+    </div>
+
+    <div class="status"><span id="status">Nincs kiválasztott dal</span><span id="clock"></span></div>
+
+    <div id="previewBox"><div id="kv"></div><div id="previewMsg"></div></div>
+
+    <div class="hint">
+      Billentyű / lapozópedál:
+      <kbd>Szóköz</kbd> <kbd>Enter</kbd> <kbd>→</kbd> <kbd>PageDown</kbd> = Start ·
+      futás közben <kbd>←</kbd> <kbd>→</kbd> = igazítás ±0,25 mp ·
+      <kbd>Esc</kbd> <kbd>PageUp</kbd> = Stop
+    </div>
+    <label class="opt"><input type="checkbox" id="midiChk"> Indítás MIDI Start/Stop jelre (USB-n csatlakoztatott hangszer/lejátszó) <span id="midiState"></span></label>
+
+    <div class="qrSection">
+      <p>Oszd meg másokkal — olvassák be a QR-kódot</p>
+      <div style="font-size:.75rem; color:var(--muted); margin:-6px 0 10px;">Kattints a QR-kódra a nagyításhoz</div>
+      <div id="qrBox"></div>
+      <span id="qrLink"></span>
+    </div>
+
+    <div class="tools">🛠️ <a href="midi2lrc.html" target="_blank">MIDI → LRC átalakító</a> (új karaoke dal készítése)</div>
+  </div>
+
+  <div id="bigQrOverlay">
+    <div id="bigQr"></div>
+    <p>Olvasd be a QR-kódot, és add tovább!</p>
+    <small>Kattints a bezáráshoz</small>
+  </div>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="../firebase-config.js"></script>
+<script src="../categories.js"></script>
+<script src="karaoke-songs.js"></script>
+<script src="karaoke-core.js"></script>
+<script>
+  firebase.initializeApp(firebaseConfig);
+  const db = firebase.database();
+  const kRef = db.ref('karaoke');
+  const SV = firebase.database.ServerValue;
+
+  let serverOffset = 0;
+  db.ref('.info/serverTimeOffset').on('value', s => serverOffset = s.val() || 0);
+  const serverNow = () => Date.now() + serverOffset;
+
+  const $ = id => document.getElementById(id);
+  const SONGS = KARAOKE_SONGS;
+  const view = KaraokeView($('kv'));
+
+  // ---- QR a viewerKaraoke.html-re (ugyanabban a mappában) ----
+  const viewerUrl = window.location.href.split('#')[0].split('?')[0].replace(/[^/]*$/, 'viewerKaraoke.html');
+  if(typeof QRCode !== 'undefined'){
+    new QRCode($('qrBox'), { text: viewerUrl, width: 160, height: 160 });
+    new QRCode($('bigQr'), { text: viewerUrl, width: 512, height: 512 });
+  }
+  $('qrBox').addEventListener('click', () => $('bigQrOverlay').classList.add('open'));
+  $('bigQrOverlay').addEventListener('click', () => $('bigQrOverlay').classList.remove('open'));
+  $('qrLink').textContent = viewerUrl;
+
+  // ---- Kategóriák (../categories.js) ----
+  function categoryOf(song){
+    if(typeof CATEGORIES === 'undefined') return '';
+    const c = CATEGORIES.find(c => song.id >= c.from && song.id <= c.to);
+    return c ? c.name : '';
+  }
+  function updateCategory(song){
+    const c = categoryOf(song);
+    $('categoryBadge').textContent = c ? '📁 ' + c : '';
+    $('categoryBadge').style.display = c ? 'inline-block' : 'none';
+  }
+
+  // ---- Legördülő lista kategóriánként ----
+  const songSelect = $('songSelect');
+  {
+    const ph = document.createElement('option');
+    ph.value = ''; ph.textContent = '— válassz dalt —'; ph.disabled = true; ph.selected = true;
+    songSelect.appendChild(ph);
+    let group = null, groupName = null;
+    SONGS.forEach((s, i) => {
+      const cat = categoryOf(s) || 'Egyéb';
+      if(cat !== groupName){
+        group = document.createElement('optgroup'); group.label = '📁 ' + cat;
+        songSelect.appendChild(group); groupName = cat;
+      }
+      const opt = document.createElement('option');
+      opt.value = i; opt.textContent = `${s.id}. ${s.title}`;
+      group.appendChild(opt);
+    });
+  }
+
+  // ---- Állapot ----
+  let currentIndex = -1;
+  let state = null;          // ami a Firebase-ben van: { id, title, url, startedAt }
+  let loadedUrl = null, loadToken = 0;
+
+  function songLabel(i){ return (i >= 0 && i < SONGS.length) ? `${SONGS[i].id}. ${SONGS[i].title}` : '—'; }
+  function updateNavHints(){
+    $('prevHint').textContent = songLabel(currentIndex > 0 ? currentIndex - 1 : -1);
+    $('nextHint').textContent = songLabel(currentIndex + 1);
+  }
+  updateNavHints();
+
+  function selectSong(index){
+    if(index < 0 || index >= SONGS.length) return;
+    const song = SONGS[index];
+    kRef.set({ index, id: song.id, title: song.title, url: song.url, startedAt: null, updatedAt: SV.TIMESTAMP });
+  }
+
+  const running = () => !!(state && state.startedAt);
+  function start(){ if(state && state.url && loadedUrl === state.url && !running()) kRef.update({ startedAt: SV.TIMESTAMP }); }
+  function stop(){ if(running()) kRef.update({ startedAt: null }); }
+  // + : a szöveg előrébb ugrik (mintha korábban indult volna)
+  function nudge(ms){ if(running()) kRef.child('startedAt').set(SV.increment(-ms)); }
+
+  function updateButtons(){
+    const ready = !!(state && state.url && loadedUrl === state.url);
+    $('startBtn').disabled = !ready || running();
+    $('stopBtn').disabled  = !running();
+    $('backBtn').disabled  = !running();
+    $('fwdBtn').disabled   = !running();
+  }
+
+  // A Firebase-ben lévő állapot a mérvadó — így ha két eszközről vezérelnek, mindkettő ugyanazt mutatja
+  kRef.on('value', snap => {
+    state = snap.val();
+    if(!state || !state.url){ view.clear(); $('status').textContent = 'Nincs kiválasztott dal'; updateButtons(); return; }
+    currentIndex = SONGS.findIndex(s => s.url === state.url);
+    if(currentIndex >= 0){ songSelect.value = currentIndex; updateCategory(SONGS[currentIndex]); }
+    updateNavHints();
+    $('status').innerHTML = (running() ? '▶ Most szól: ' : 'Kiválasztva: ') + '<b></b>';
+    $('status').querySelector('b').textContent = state.title || '';
+    if(state.url !== loadedUrl){
+      const my = ++loadToken, url = state.url;
+      loadedUrl = null; view.clear(); $('previewMsg').textContent = 'Betöltés…';
+      fetchLrc(url).then(lrc => {
+        if(my !== loadToken) return;
+        $('previewMsg').textContent = lrc.lines.length ? '' : 'A dalszöveg üres.';
+        view.load(lrc); loadedUrl = url; updateButtons();
+      }).catch(e => {
+        if(my !== loadToken) return;
+        $('previewMsg').textContent = 'Az LRC fájlt nem sikerült betölteni: ' + url;
+        console.error(e); updateButtons();
+      });
+    }
+    updateButtons();
+  });
+
+  function fmt(t){ const s = Math.max(0, t); return Math.floor(s / 60) + ':' + (s % 60).toFixed(1).padStart(4, '0'); }
+  function tick(){
+    if(state && loadedUrl === state.url){
+      const t = running() ? (serverNow() - state.startedAt) / 1000 : null;
+      view.render(t);
+      $('clock').textContent = t === null ? '' : fmt(t);
+    } else $('clock').textContent = '';
+    requestAnimationFrame(tick);
+  }
+  requestAnimationFrame(tick);
+
+  // ---- Gombok ----
+  songSelect.addEventListener('change', () => selectSong(parseInt(songSelect.value, 10)));
+  $('prevBtn').addEventListener('click', () => selectSong(Math.max(0, currentIndex - 1)));
+  $('nextBtn').addEventListener('click', () => selectSong(Math.min(SONGS.length - 1, currentIndex + 1)));
+  $('selectNumBtn').addEventListener('click', () => {
+    const num = parseInt($('songNum').value, 10);
+    const idx = SONGS.findIndex(s => s.id === num);
+    if(idx === -1){ alert('Nincs ilyen számú karaoke dal.'); return; }
+    selectSong(idx);
+  });
+  $('songNum').addEventListener('keydown', e => { if(e.key === 'Enter') $('selectNumBtn').click(); });
+  $('startBtn').addEventListener('click', start);
+  $('stopBtn').addEventListener('click', stop);
+  $('backBtn').addEventListener('click', () => nudge(-250));
+  $('fwdBtn').addEventListener('click', () => nudge(250));
+
+  // ---- Billentyű / Bluetooth lapozópedál ----
+  document.addEventListener('keydown', e => {
+    const t = e.target;
+    if(t && (t.tagName === 'INPUT' || t.tagName === 'SELECT' || t.tagName === 'TEXTAREA')) return;
+    switch(e.key){
+      case ' ': case 'Spacebar': case 'Enter': case 'PageDown':
+        e.preventDefault(); if(!running()) start(); break;
+      case 'ArrowRight':
+        e.preventDefault(); running() ? nudge(250) : start(); break;
+      case 'ArrowLeft':
+        e.preventDefault(); if(running()) nudge(-250); break;
+      case 'Escape': case 'PageUp':
+        e.preventDefault(); stop(); break;
+    }
+  });
+
+  // ---- MIDI Start/Stop (pl. arranger-szinti vagy MIDI-lejátszó USB-n) ----
+  let midiAccess = null;
+  const onMidi = m => {
+    const s = m.data[0];
+    if(s === 0xFA) start();          // Start
+    else if(s === 0xFC) stop();      // Stop
+  };
+  function bindMidi(on){
+    if(!midiAccess) return;
+    midiAccess.inputs.forEach(i => i.onmidimessage = on ? onMidi : null);
+    const n = midiAccess.inputs.size;
+    $('midiState').textContent = on ? (n ? '— ' + n + ' eszköz figyelve' : '— nincs MIDI eszköz csatlakoztatva') : '';
+  }
+  $('midiChk').addEventListener('change', () => {
+    const on = $('midiChk').checked;
+    if(!on){ bindMidi(false); return; }
+    if(!navigator.requestMIDIAccess){ $('midiState').textContent = '— ez a böngésző nem támogatja (Chrome / Edge kell)'; $('midiChk').checked = false; return; }
+    navigator.requestMIDIAccess().then(a => {
+      midiAccess = a; bindMidi($('midiChk').checked);
+      a.onstatechange = () => bindMidi($('midiChk').checked);
+    }).catch(() => { $('midiState').textContent = '— nincs engedély'; $('midiChk').checked = false; });
+  });
+</script>
+</body>
+</html>

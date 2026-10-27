@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Karaoke</title>
+<style>
+  html,body{height:100%; margin:0;}
+  body{
+    font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;
+    background:#0b1220; color:#f9fafb;
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    text-align:center; padding:24px;
+  }
+  #idleScreen{display:flex; flex-direction:column; align-items:center; gap:16px;}
+  h1{font-size:1.3rem; margin:0; color:#9ca3af; font-weight:500;}
+  #waitMsg{font-size:1.1rem; color:#f9fafb; margin:0;}
+  #qrBox{background:#fff; padding:14px; border-radius:14px; margin-top:10px;}
+  #qrCaption{font-size:.85rem; color:#9ca3af; margin-top:8px;}
+
+  #songScreen{
+    display:none; width:100%; height:100%; position:fixed; inset:0;
+    flex-direction:column; background:#0b1220;
+  }
+  #songTitleBar{
+    padding:14px 18px; background:#111827; font-size:1.1rem; font-weight:700;
+    border-bottom:1px solid #1f2937; text-align:left;
+  }
+  #lyrics{flex:1; display:flex; flex-direction:column; justify-content:center; padding:0 4vw; overflow:hidden;}
+  #msg{color:#9ca3af; font-size:1rem;}
+
+  /* Karaoke szöveg */
+  .kv > div{min-height:1.35em; line-height:1.3; margin:.15em 0;}
+  .kv-prev{font-size:clamp(1.1rem,4.2vw,2.6rem); color:#6b7280;}
+  .kv-cur{font-size:clamp(1.6rem,6.5vw,4.2rem); font-weight:700; color:#f9fafb; margin:.35em 0 !important;}
+  .kv-next{font-size:clamp(1.1rem,4.2vw,2.6rem); color:#9ca3af;}
+  .kv-next2{font-size:clamp(1rem,3.8vw,2.3rem); color:#6b7280;}
+  .kv-cur span{transition:color .08s;}
+  .kv-cur span.on{color:#facc15;}
+  .kv-cd{color:#facc15; font-weight:700; font-size:1.3em;}
+
+  #miniQrBar{
+    display:flex; align-items:center; justify-content:center; gap:10px;
+    padding:8px; background:#111827; border-top:1px solid #1f2937;
+    flex-shrink:0; cursor:pointer;
+  }
+  #miniQrBar span{font-size:.75rem; color:#9ca3af;}
+  #miniQr{background:#fff; padding:4px; border-radius:8px; line-height:0;}
+  #miniQr img, #miniQr canvas{display:block; width:48px; height:48px;}
+  #bigQrOverlay{
+    display:none; position:fixed; inset:0; z-index:100;
+    background:rgba(11,18,32,.92); cursor:pointer;
+    flex-direction:column; align-items:center; justify-content:center; gap:14px;
+  }
+  #bigQrOverlay.open{display:flex;}
+  #bigQr{background:#fff; padding:16px; border-radius:16px; line-height:0;}
+  #bigQr img, #bigQr canvas{display:block; width:min(80vw, 70vh); height:min(80vw, 70vh);}
+  #bigQrOverlay p{margin:0; font-size:1rem; color:#f9fafb;}
+  #bigQrOverlay small{color:#9ca3af; font-size:.8rem;}
+</style>
+</head>
+<body>
+
+  <div id="idleScreen">
+    <h1 id="connStatus">Csatlakozás…</h1>
+    <p id="waitMsg" style="display:none;">🎤 Karaoke — várakozás, hogy az operátor kiválasszon egy dalt…</p>
+    <div id="qrBox" style="display:none;"></div>
+    <p id="qrCaption" style="display:none;">Oszd meg másokkal — olvassák be a QR-kódot</p>
+  </div>
+
+  <div id="songScreen">
+    <div id="songTitleBar"></div>
+    <div id="lyrics"><div id="kv"></div><div id="msg"></div></div>
+    <div id="miniQrBar">
+      <span>Oszd meg — koppints a QR-kódra a nagyításhoz</span>
+      <div id="miniQr"></div>
+    </div>
+  </div>
+
+  <div id="bigQrOverlay">
+    <div id="bigQr"></div>
+    <p>Olvasd be a QR-kódot, és add tovább!</p>
+    <small>Koppints a bezáráshoz</small>
+  </div>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="../firebase-config.js"></script>
+<script src="karaoke-core.js"></script>
+<script>
+  firebase.initializeApp(firebaseConfig);
+  const db = firebase.database();
+  const kRef = db.ref('karaoke');          // külön csatorna, a normál kijelzőt nem zavarja
+
+  // A Firebase szerver órájához igazítunk, így minden telefon egyszerre lép
+  let serverOffset = 0;
+  db.ref('.info/serverTimeOffset').on('value', s => serverOffset = s.val() || 0);
+  const serverNow = () => Date.now() + serverOffset;
+
+  const $ = id => document.getElementById(id);
+  const view = KaraokeView($('kv'));
+
+  // QR-kódok erre az oldalra
+  const selfUrl = window.location.href.split('#')[0];
+  if(typeof QRCode !== 'undefined'){
+    new QRCode($('qrBox'),  { text: selfUrl, width: 200, height: 200 });
+    new QRCode($('miniQr'), { text: selfUrl, width: 64,  height: 64 });
+    new QRCode($('bigQr'),  { text: selfUrl, width: 512, height: 512 });
+  }
+  $('miniQrBar').addEventListener('click', () => $('bigQrOverlay').classList.add('open'));
+  $('bigQrOverlay').addEventListener('click', () => $('bigQrOverlay').classList.remove('open'));
+
+  let state = null, loadedUrl = null, loadToken = 0;
+
+  function tick(){
+    if(state && loadedUrl === state.url){
+      const t = state.startedAt ? (serverNow() - state.startedAt) / 1000 : null;
+      view.render(t);
+    }
+    requestAnimationFrame(tick);
+  }
+  requestAnimationFrame(tick);
+
+  kRef.on('value', snap => {
+    $('connStatus').style.display = 'none';
+    state = snap.val();
+    if(!state || !state.url){
+      loadedUrl = null; view.clear();
+      $('songScreen').style.display = 'none';
+      $('idleScreen').style.display = 'flex';
+      $('waitMsg').style.display = 'block';
+      $('qrBox').style.display = 'inline-block';
+      $('qrCaption').style.display = 'block';
+      return;
+    }
+    $('idleScreen').style.display = 'none';
+    $('songScreen').style.display = 'flex';
+    $('songTitleBar').textContent = state.title || '';
+    if(state.url !== loadedUrl){
+      const my = ++loadToken, url = state.url;
+      view.clear(); $('msg').textContent = 'Betöltés…';
+      fetchLrc(url).then(lrc => {
+        if(my !== loadToken) return;
+        $('msg').textContent = lrc.lines.length ? '' : 'A dalszöveg üres.';
+        view.load(lrc); loadedUrl = url;
+      }).catch(e => {
+        if(my !== loadToken) return;
+        $('msg').textContent = 'A dalszöveget nem sikerült betölteni.';
+        console.error(e);
+      });
+    }
+  }, err => {
+    $('connStatus').textContent = 'Kapcsolódási hiba — ellenőrizd a firebase-config.js beállításait.';
+    $('connStatus').style.display = 'block';
+    console.error(err);
+  });
+
+  // A képernyő ne aludjon el a dal közben (ha a böngésző támogatja)
+  let wakeLock = null;
+  async function keepAwake(){ try{ wakeLock = await navigator.wakeLock.request('screen'); }catch(e){} }
+  if('wakeLock' in navigator){
+    keepAwake();
+    document.addEventListener('visibilitychange', () => { if(document.visibilityState === 'visible') keepAwake(); });
+  }
+</script>
+</body>
+</html>
