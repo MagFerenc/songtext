@@ -127,7 +127,7 @@
 
     <div class="numrow" style="align-items:center; margin-top:12px;">
       <label for="songNum" style="margin:0; flex:0 0 auto; white-space:nowrap;">Dal száma</label>
-      <input type="number" id="songNum" min="1" placeholder="pl. 201">
+      <input type="number" id="songNum" min="1" placeholder="pl. 90101">
       <button id="selectNumBtn" class="primary">Kiválaszt</button>
     </div>
 
@@ -174,7 +174,6 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script src="firebase-config.js"></script>
-<script src="categories.js"></script>
 <script src="karaoke-songs.js"></script>
 <script src="karaoke-core.js"></script>
 <script>
@@ -202,33 +201,49 @@
   $('bigQrOverlay').addEventListener('click', () => $('bigQrOverlay').classList.remove('open'));
   $('qrLink').textContent = viewerUrl;
 
-  // ---- Kategóriák (../categories.js) ----
-  function categoryOf(song){
-    if(typeof CATEGORIES === 'undefined') return '';
-    const c = CATEGORIES.find(c => song.id >= c.from && song.id <= c.to);
-    return c ? c.name : '';
+  // ---- Mappák (fastruktúra) — az url-ből: Karaoke/900-Magyar/01-Ad Studio/90101-....lrc ----
+  const NBSP = '\u00a0';
+  function folderPath(song){
+    const parts = song.url.split('/').slice(1, -1);          // 'Karaoke' és a fájlnév nélkül
+    return parts.map(p => { const m = /^(\d+)-(.*)$/.exec(p); return m ? { num: m[1], name: m[2] } : { num: '', name: p }; });
   }
+  const fullTitle = s => s.artist && !s.title.includes(s.artist) ? `${s.title} – ${s.artist}` : s.title;
   function updateCategory(song){
-    const c = categoryOf(song);
-    $('categoryBadge').textContent = c ? '📁 ' + c : '';
-    $('categoryBadge').style.display = c ? 'inline-block' : 'none';
+    const path = folderPath(song).map(p => p.name).join(' › ');
+    $('categoryBadge').textContent = path ? '📁 ' + path : '';
+    $('categoryBadge').style.display = path ? 'inline-block' : 'none';
   }
 
-  // ---- Legördülő lista kategóriánként ----
+  // ---- Legördülő lista: főkategória = csoport, alatta behúzva a mappák és a dalok ----
   const songSelect = $('songSelect');
   {
     const ph = document.createElement('option');
     ph.value = ''; ph.textContent = '— válassz dalt —'; ph.disabled = true; ph.selected = true;
     songSelect.appendChild(ph);
-    let group = null, groupName = null;
+    let group = null, groupKey = null, openPath = [];
     SONGS.forEach((s, i) => {
-      const cat = categoryOf(s) || 'Egyéb';
-      if(cat !== groupName){
-        group = document.createElement('optgroup'); group.label = '📁 ' + cat;
-        songSelect.appendChild(group); groupName = cat;
+      const path = folderPath(s);
+      const top = path[0] || { num: '', name: 'Egyéb' };
+      if(top.num + top.name !== groupKey){
+        group = document.createElement('optgroup');
+        group.label = '📁 ' + (top.num ? top.num + ' ' : '') + top.name;
+        songSelect.appendChild(group); groupKey = top.num + top.name; openPath = [];
       }
+      // új almappa(k) fejléce, a mélységnek megfelelő behúzással
+      const sub = path.slice(1);
+      sub.forEach((p, d) => {
+        const key = p.num + p.name;
+        if(openPath[d] === key) return;
+        openPath = openPath.slice(0, d); openPath[d] = key;
+        const h = document.createElement('option');
+        h.disabled = true;
+        h.textContent = NBSP.repeat(2 + d * 4) + '📂 ' + (p.num ? p.num + ' ' : '') + p.name;
+        group.appendChild(h);
+      });
+      openPath = openPath.slice(0, sub.length);
       const opt = document.createElement('option');
-      opt.value = i; opt.textContent = `${s.id}. ${s.title}`;
+      opt.value = i;
+      opt.textContent = NBSP.repeat(2 + sub.length * 4) + `${s.id}. ${s.title}`;
       group.appendChild(opt);
     });
   }
@@ -239,7 +254,7 @@
                              //   (lásd karaokeTime() a karaoke-core.js-ben)
   let loadedUrl = null, loadToken = 0, chordList = [], songLength = null, autoStopped = false;
 
-  function songLabel(i){ return (i >= 0 && i < SONGS.length) ? `${SONGS[i].id}. ${SONGS[i].title}` : '—'; }
+  function songLabel(i){ return (i >= 0 && i < SONGS.length) ? `${SONGS[i].id}. ${fullTitle(SONGS[i])}` : '—'; }
   function updateNavHints(){
     $('prevHint').textContent = songLabel(currentIndex > 0 ? currentIndex - 1 : -1);
     $('nextHint').textContent = songLabel(currentIndex + 1);
@@ -249,7 +264,7 @@
   function selectSong(index){
     if(index < 0 || index >= SONGS.length) return;
     const song = SONGS[index];
-    kRef.set({ index, id: song.id, title: song.title, url: song.url, startedAt: null, updatedAt: SV.TIMESTAMP });
+    kRef.set({ index, id: song.id, title: fullTitle(song), url: song.url, startedAt: null, updatedAt: SV.TIMESTAMP });
   }
 
   const D = KARAOKE_SYNC_DELAY;

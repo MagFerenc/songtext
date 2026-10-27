@@ -189,7 +189,7 @@ function meta(ev,fname){
   const atT=txt.filter(x=>x.startsWith('@T')).map(x=>x.slice(2).trim()).filter(Boolean);
   if(!title&&atT[0])title=atT[0];
   if(!artist&&atT[1])artist=atT[1];
-  const base=fname.replace(/\.(mid|midi|kar)$/i,'');
+  const base=fname.replace(/(\.(mid|midi|kar))+$/i,'');
   // nincs cím a fájlban → a fájlnév marad
   if(!title)return {title:base,artist:'',fromFile:true};
   return {title:title.trim(),artist:artist.trim()};
@@ -223,6 +223,9 @@ function toLines(syl){
     }
   }
   flush();
+  // szerzői jogi / reklám szövegek (pl. "(C)ChrisMIDIStudio") kiszűrése
+  const JUNK=/\(c\)|©|midi ?studio|www\.|https?:|@|karaoke creator|szöveg by/i;
+  for(const l of lines)for(let k=l.length-1;k>=0;k--)if(JUNK.test(l[k].s)||/^[\s\-:.]*$/.test(l[k].s))l.splice(k,1);
   // csak betűt tartalmazó sorok maradnak (pl. "---- " előszámolás kiesik)
   return lines.filter(l=>/\p{L}/u.test(l.map(x=>x.s).join('')));
 }

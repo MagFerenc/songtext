@@ -56,23 +56,35 @@ A `categories.js` fájlban van, melyik dalszám-tartomány melyik kategória
 # Karaoke dalok
 
 A karaoke oldalak (`ControllerKaraoke.html`, `viewerKaraoke.html`) a főkönyvtárban vannak, a normál
-dalkijelzőtől függetlenül működnek. A dalszövegek **LRC** fájlok (időzített dalszöveg), a `Karaoke` mappán belül ugyanolyan
-alkönyvtárakban, mint a PDF-ek a `Dalok` alatt (`200-Pop`, `300-nemzetkozi` …).
+dalkijelzőtől függetlenül működnek. A dalszövegek **LRC** fájlok (időzített dalszöveg) a `Karaoke`
+mappában, alkönyvtárakba rendezve:
+
+```
+Karaoke/
+  900-Magyar/
+    01-Ad Studio/
+      90101-A Nap szerelmese.lrc
+      90101-A Nap szerelmese.akkord.lrc
+    02-Ákos/
+    …
+    57-Mulatós/
+      58-Dupla Kávé/
+```
+
+**Számozás (5 jegyű):** `9 01 01` = főkategória (9 = Magyar) · mappa száma · dal sorszáma a mappában.
+A vezérlő lenyílójában a mappák fastruktúraként látszanak, a „Dal száma” mezőbe a szám beírható.
 
 ## Új karaoke dal hozzáadása
 
-1. Nyisd meg a **MIDI → LRC átalakítót**, húzd rá a karaoke-MIDI fájl(oka)t, és töltsd le az LRC-t.
-   (Csak olyan MIDI-ből lesz LRC, amiben van dalszöveg — az oldal kiírja.)
-2. A repóban nyisd meg a `Karaoke` mappán belül a megfelelő alkönyvtárat, és töltsd fel az
-   `.lrc` fájlt (**"Add file" → "Upload files"** → **"Commit changes"**).
-3. Nyisd meg a `karaoke-songs.js` fájlt (ceruza ikon), és a lista végére írj egy új sort:
+1. Nyisd meg a **MIDI → LRC átalakítót**, húzd rá a karaoke-MIDI fájl(oka)t vagy mappát, és töltsd le a ZIP-et.
+2. A repóban nyisd meg a megfelelő mappát a `Karaoke` alatt, és töltsd fel az `.lrc` (és `.akkord.lrc`)
+   fájlt (**"Add file" → "Upload files"** → **"Commit changes"**). Érdemes a fájlnevet a dal számával
+   kezdeni, pl. `90104-Dal címe.lrc`.
+3. Nyisd meg a `karaoke-songs.js` fájlt (ceruza ikon), és a mappa többi dala után írj egy új sort:
 
    ```
-   { id: 202, title: "Dal címe - Előadó", url: "Karaoke/200-Pop/Fajl neve.lrc" },
+   { id: 90104, title: "Dal címe", artist: "Ad Studio", url: "Karaoke/900-Magyar/01-Ad Studio/90104-Dal címe.lrc" },
    ```
-
-   - **id**: egyedi szám; a kategória (jobb felső címke) a `categories.js` tartományai szerint jön
-   - **url**: `Karaoke/` + alkönyvtár / fájlnév, pontosan úgy, ahogy feltöltötted (kis/nagybetű is számít)
 
 ## Használat élőben
 
