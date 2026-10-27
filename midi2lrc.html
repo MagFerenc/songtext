@@ -284,7 +284,9 @@ async function handle(fs){
       const ev=parseMidi(await f.arrayBuffer());const syl=syllables(ev);
       if(syl){const m=meta(ev,f.name),lines=toLines(syl);
         if(lines.length){const te=ev.find(e=>e.ty===0x51&&e.raw.length===3);if(te){const us=(te.raw[0]<<16)|(te.raw[1]<<8)|te.raw[2];m.bpm=Math.round(6e7/us*10)/10;}
-          it.lrc=makeLrc(m,lines,ev.reduce((a,e)=>Math.max(a,e.t||0),0));it.lines=lines.length;it.name=baseName(m);
+          // a dal hossza: az utolsó hang vége (a fájl végén lévő csendet nem számítjuk)
+          const lastNote=ev.reduce((a,e)=>(e.ty==='on'||e.ty==='off')?Math.max(a,e.t):a,0);
+          it.lrc=makeLrc(m,lines,lastNote||ev.reduce((a,e)=>Math.max(a,e.t||0),0));it.lines=lines.length;it.name=baseName(m);
           let ch=xfChords(ev),src='xf';
           if(ch.length<2){ch=estimateChords(ev,(ev.find(e=>e.ty===5)||{}).trk);src='est';}
           if(ch.length){it.chords=makeChords(m,ch,src);it.chSrc=src;it.chN=ch.length;}}}
