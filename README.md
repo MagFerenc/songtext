@@ -96,8 +96,8 @@ A vezérlő lenyílójában a mappák fastruktúraként látszanak, a „Dal sz�
 5. **■ Stop** (vagy Esc / PageUp) visszaállítja a dal elejére.
 6. **Tempó:** ha a szintin gyorsabbra/lassabbra állítod a dalt, a vezérlőn a **− lassabb / + gyorsabb**
    gombokkal (vagy a + / − billentyűkkel) ugyanannyi BPM-mel kell állítani; **↺** = vissza az eredetire.
-   Ehhez kell a dal eredeti tempója: az új átalakítóval készült LRC-kben benne van, a régieknél
-   egyszer be kell írni az „Eredeti tempó” mezőbe (a szinti kijelzőjéről) — a vezérlő megjegyzi.
+   Az eredeti tempót (BPM) a MIDI → LRC átalakító írja bele az LRC-be; ha egy régi fájlban
+   nincs benne, a gombok %-ban lépnek.
 
 Ha a MIDI-t USB-n csatlakoztatott hangszer vagy lejátszó játssza, a „MIDI Start/Stop jelre”
 jelölővel a vezérlő magától indul és áll le (Chrome / Edge böngészőben).

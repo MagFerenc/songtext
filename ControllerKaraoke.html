@@ -95,8 +95,6 @@
   .tempoRow button{flex:1; padding:10px;}
   .tempoRow #tempoReset{flex:0 0 auto;}
   #tempoVal{flex:1.2; text-align:center; font-weight:700; font-size:1.05rem; font-variant-numeric:tabular-nums;}
-  .tempoOrig{margin-top:6px; font-size:.82rem; color:var(--muted); display:flex; align-items:center; gap:6px; flex-wrap:wrap;}
-  .tempoOrig input{width:80px; padding:4px 6px; border-radius:6px; border:1px solid #374151; background:#111827; color:var(--text);}
   .hint{margin-top:10px; font-size:.8rem; color:var(--muted); line-height:1.5;}
   .hint kbd{background:#374151; border-radius:4px; padding:1px 5px; font-family:inherit; color:#e5e7eb;}
   .opt{margin-top:14px; font-size:.9rem; color:#e5e7eb; display:flex; align-items:center; gap:8px;}
@@ -158,7 +156,6 @@
       <button id="tempoUp" disabled>+ gyorsabb</button>
       <button id="tempoReset" disabled title="vissza az eredeti tempóra">↺</button>
     </div>
-    <div class="tempoOrig">Eredeti tempó: <input type="number" id="origBpm" min="30" max="300" placeholder="BPM"> BPM <span id="origBpmHint"></span></div>
 
     <div class="status"><span id="status">Nincs kiválasztott dal</span><span id="clock"></span></div>
 
@@ -193,9 +190,9 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-<script src="firebase-config.js?v=202610271813"></script>
-<script src="karaoke-songs.js?v=202610271813"></script>
-<script src="karaoke-core.js?v=202610271813"></script>
+<script src="firebase-config.js?v=202610271816"></script>
+<script src="karaoke-songs.js?v=202610271816"></script>
+<script src="karaoke-core.js?v=202610271816"></script>
 <script>
   firebase.initializeApp(firebaseConfig);
   const db = firebase.database();
@@ -322,16 +319,11 @@
   }
 
   // ---- Tempó ----
-  //  A dal eredeti tempója (BPM) az LRC [tempo:] mezőjéből jön; ha nincs benne, a vezérlőn
-  //  egyszer be lehet írni (dalonként megjegyzi ezen a gépen/telefonon).
+  //  A dal eredeti tempója (BPM) az LRC [tempo:] mezőjéből jön (a MIDI → LRC átalakító írja bele);
+  //  ha egy régi fájlban nincs benne, a gombok %-ban lépnek.
   const rate = () => (state && state.rate) || 1;
   let lrcMeta = {};
-  const bpmKey = () => state ? 'karaokeBpm:' + state.id : '';
-  function origBpm(){
-    const m = parseFloat(lrcMeta.tempo);
-    if(m > 0) return m;
-    try{ const v = parseFloat(localStorage.getItem(bpmKey())); return v > 0 ? v : null; }catch(e){ return null; }
-  }
+  function origBpm(){ const m = parseFloat(lrcMeta.tempo); return m > 0 ? m : null; }
   function setRate(r){
     if(!state || !state.url) return;
     r = Math.min(1.5, Math.max(0.5, Math.round(r * 10000) / 10000));
@@ -353,19 +345,10 @@
     else txt = Math.round(r * 100) + '%' + (Math.abs(r - 1) < 1e-4 ? ' (eredeti)' : '');
     $('tempoVal').textContent = txt;
     $('tempoVal').style.color = Math.abs(r - 1) < 1e-4 ? '' : 'var(--yellow)';
-    const inp = $('origBpm');
-    if(document.activeElement !== inp) inp.value = o ? Math.round(o) : '';
-    inp.disabled = !!(parseFloat(lrcMeta.tempo) > 0);
-    $('origBpmHint').textContent = parseFloat(lrcMeta.tempo) > 0 ? '(a fájlból)' : (o ? '(beírva)' : '← írd be a szintiről, és BPM-ben lép');
   }
   $('tempoDown').addEventListener('click', () => tempoStep(-1));
   $('tempoUp').addEventListener('click', () => tempoStep(+1));
   $('tempoReset').addEventListener('click', () => setRate(1));
-  $('origBpm').addEventListener('change', () => {
-    const v = parseFloat($('origBpm').value);
-    try{ if(v > 0) localStorage.setItem(bpmKey(), String(v)); else localStorage.removeItem(bpmKey()); }catch(e){}
-    updateTempo();
-  });
 
   function updateButtons(){
     const ready = !!(state && state.url && loadedUrl === state.url);
