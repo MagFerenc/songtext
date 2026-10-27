@@ -136,9 +136,10 @@
 
     <div class="hint">
       Billentyű / lapozópedál:
-      <kbd>Szóköz</kbd> <kbd>Enter</kbd> <kbd>→</kbd> <kbd>PageDown</kbd> = Start ·
-      futás közben <kbd>←</kbd> <kbd>→</kbd> = igazítás ±0,25 mp ·
-      <kbd>Esc</kbd> <kbd>PageUp</kbd> = Stop
+      <kbd>Szóköz</kbd> <kbd>Enter</kbd> <kbd>PageDown</kbd> = Start ·
+      <kbd>Esc</kbd> <kbd>PageUp</kbd> = Stop ·
+      <kbd>←</kbd> <kbd>→</kbd> = előző / következő dal ·
+      <kbd>↑</kbd> <kbd>↓</kbd> = szöveg előrébb / későbbre (0,25 mp)
     </div>
     <label class="opt"><input type="checkbox" id="midiChk"> Indítás MIDI Start/Stop jelre (USB-n csatlakoztatott hangszer/lejátszó) <span id="midiState"></span></label>
 
@@ -311,10 +312,14 @@
     switch(e.key){
       case ' ': case 'Spacebar': case 'Enter': case 'PageDown':
         e.preventDefault(); if(!running()) start(); break;
-      case 'ArrowRight':
-        e.preventDefault(); running() ? nudge(250) : start(); break;
-      case 'ArrowLeft':
-        e.preventDefault(); if(running()) nudge(-250); break;
+      case 'ArrowRight':                       // mint a sima vezérlőnél: következő dal
+        e.preventDefault(); $('nextBtn').click(); break;
+      case 'ArrowLeft':                        // előző dal
+        e.preventDefault(); $('prevBtn').click(); break;
+      case 'ArrowUp':                          // szöveg előrébb
+        e.preventDefault(); nudge(250); break;
+      case 'ArrowDown':                        // szöveg későbbre
+        e.preventDefault(); nudge(-250); break;
       case 'Escape': case 'PageUp':
         e.preventDefault(); stop(); break;
     }

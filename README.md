@@ -77,9 +77,9 @@ alkönyvtárakban, mint a PDF-ek a `Dalok` alatt (`200-Pop`, `300-nemzetkozi` �
 ## Használat élőben
 
 1. A vezérlőn válaszd ki a dalt — a nézők telefonján megjelenik a cím és az első sorok.
-2. A zene indulásával egyszerre nyomd meg a **▶ Start**-ot (vagy Szóköz / Enter / jobbra nyíl /
-   lapozópedál). Az első sor előtt 5 másodperccel visszaszámlálás indul.
-3. Ha a szöveg elcsúszik, a **± 0,25 mp** gombokkal (vagy futás közben a ← → nyilakkal) igazíts.
+2. A zene indulásával egyszerre nyomd meg a **▶ Start**-ot (vagy Szóköz / Enter / PageDown /
+   lapozópedál). A ← → nyilak itt is az előző / következő dalt választják, mint a sima vezérlőnél. Az első sor előtt 5 másodperccel visszaszámlálás indul.
+3. Ha a szöveg elcsúszik, a **± 0,25 mp** gombokkal (vagy a ↑ ↓ nyilakkal) igazíts.
 4. **■ Stop** (vagy Esc / PageUp) visszaállítja a dal elejére.
 
 Ha a MIDI-t USB-n csatlakoztatott hangszer vagy lejátszó játssza, a „MIDI Start/Stop jelre”
