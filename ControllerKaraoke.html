@@ -190,6 +190,7 @@
   const $ = id => document.getElementById(id);
   const SONGS = KARAOKE_SONGS;
   const view = KaraokeView($('kv'), { next: 4 });
+  keepScreenAwake();            // a vezérlő képernyője se sötétüljön el
 
   // ---- QR a viewerKaraoke.html-re (ugyanabban a mappában) ----
   const viewerUrl = window.location.href.split('#')[0].split('?')[0].replace(/[^/]*$/, 'viewerKaraoke.html');

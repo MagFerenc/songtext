@@ -155,13 +155,8 @@
     console.error(err);
   });
 
-  // A képernyő ne aludjon el a dal közben (ha a böngésző támogatja)
-  let wakeLock = null;
-  async function keepAwake(){ try{ wakeLock = await navigator.wakeLock.request('screen'); }catch(e){} }
-  if('wakeLock' in navigator){
-    keepAwake();
-    document.addEventListener('visibilitychange', () => { if(document.visibilityState === 'visible') keepAwake(); });
-  }
+  // A képernyő ne aludjon el a dal közben
+  keepScreenAwake();
 </script>
 </body>
 </html>

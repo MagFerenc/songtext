@@ -182,6 +182,20 @@ function karaokeTime(state, now){
   return t;
 }
 
+// A képernyő ne sötétüljön el, amíg az oldal nyitva van (ha a böngésző támogatja).
+// Visszatéréskor és az első érintésre/gombnyomásra is újrakéri — egyes telefonok csak ekkor engedik.
+function keepScreenAwake(){
+  if(!('wakeLock' in navigator)) return;
+  let lock = null;
+  const req = async () => {
+    if(document.visibilityState !== 'visible' || (lock && !lock.released)) return;
+    try{ lock = await navigator.wakeLock.request('screen'); }catch(e){}
+  };
+  req();
+  document.addEventListener('visibilitychange', req);
+  ['pointerdown', 'keydown'].forEach(ev => document.addEventListener(ev, req, { passive: true }));
+}
+
 // LRC letöltése (a fájlnévben lehet szóköz, ékezet, & stb.)
 function fetchLrc(url){
   return fetch(encodeURI(url), { cache: 'no-cache' }).then(r => {
