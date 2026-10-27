@@ -147,7 +147,7 @@
 
     <div class="hint">
       Billentyű / lapozópedál:
-      <kbd>Szóköz</kbd> <kbd>Enter</kbd> <kbd>PageDown</kbd> = Start ·
+      <kbd>Szóköz</kbd> <kbd>Enter</kbd> <kbd>PageDown</kbd> = Start / Szünet / Folytatás ·
       <kbd>Esc</kbd> <kbd>PageUp</kbd> = Stop ·
       <kbd>←</kbd> <kbd>→</kbd> = előző / következő dal ·
       <kbd>↑</kbd> <kbd>↓</kbd> = szöveg előrébb / későbbre (0,25 mp)
@@ -234,7 +234,8 @@
 
   // ---- Állapot ----
   let currentIndex = -1;
-  let state = null;          // ami a Firebase-ben van: { id, title, url, startedAt }
+  let state = null;          // ami a Firebase-ben van: { id, title, url, startedAt, pausedAt }
+                             //   startedAt: fut (szerveridő, ms) · pausedAt: szünet (hol tart, mp) · mindkettő üres: áll
   let loadedUrl = null, loadToken = 0, chordList = [];
 
   function songLabel(i){ return (i >= 0 && i < SONGS.length) ? `${SONGS[i].id}. ${SONGS[i].title}` : '—'; }
@@ -251,17 +252,34 @@
   }
 
   const running = () => !!(state && state.startedAt);
-  function start(){ if(state && state.url && loadedUrl === state.url && !running()) kRef.update({ startedAt: SV.TIMESTAMP }); }
-  function stop(){ if(running()) kRef.update({ startedAt: null }); }
+  const paused  = () => !!(state && !state.startedAt && typeof state.pausedAt === 'number');
+  const active  = () => running() || paused();
+  const ready   = () => !!(state && state.url && loadedUrl === state.url);
+  function start(){            // elejéről
+    if(ready() && !running()) kRef.update({ startedAt: SV.TIMESTAMP, pausedAt: null });
+  }
+  function pause(){
+    if(running()) kRef.update({ startedAt: null, pausedAt: (serverNow() - state.startedAt) / 1000 });
+  }
+  function resume(){
+    if(paused()) kRef.update({ startedAt: Math.round(serverNow() - state.pausedAt * 1000), pausedAt: null });
+  }
+  // Start gomb / Szóköz: áll → indul, fut → szünet, szünet → folytatás
+  function toggle(){ if(running()) pause(); else if(paused()) resume(); else start(); }
+  function stop(){ if(active()) kRef.update({ startedAt: null, pausedAt: null }); }
   // + : a szöveg előrébb ugrik (mintha korábban indult volna)
-  function nudge(ms){ if(running()) kRef.child('startedAt').set(SV.increment(-ms)); }
+  function nudge(ms){
+    if(running()) kRef.child('startedAt').set(SV.increment(-ms));
+    else if(paused()) kRef.child('pausedAt').set(Math.max(0, state.pausedAt + ms / 1000));
+  }
 
   function updateButtons(){
     const ready = !!(state && state.url && loadedUrl === state.url);
-    $('startBtn').disabled = !ready || running();
-    $('stopBtn').disabled  = !running();
-    $('backBtn').disabled  = !running();
-    $('fwdBtn').disabled   = !running();
+    $('startBtn').disabled = !ready;
+    $('startBtn').textContent = running() ? '⏸ Szünet' : paused() ? '▶ Folytatás' : '▶ Start';
+    $('stopBtn').disabled  = !active();
+    $('backBtn').disabled  = !active();
+    $('fwdBtn').disabled   = !active();
   }
 
   // A Firebase-ben lévő állapot a mérvadó — így ha két eszközről vezérelnek, mindkettő ugyanazt mutatja
@@ -271,7 +289,7 @@
     currentIndex = SONGS.findIndex(s => s.url === state.url);
     if(currentIndex >= 0){ songSelect.value = currentIndex; updateCategory(SONGS[currentIndex]); }
     updateNavHints();
-    $('status').innerHTML = (running() ? '▶ Most szól: ' : 'Kiválasztva: ') + '<b></b>';
+    $('status').innerHTML = (running() ? '▶ Most szól: ' : paused() ? '⏸ Szünet: ' : 'Kiválasztva: ') + '<b></b>';
     $('status').querySelector('b').textContent = state.title || '';
     if(state.url !== loadedUrl){
       const my = ++loadToken, url = state.url;
@@ -294,7 +312,7 @@
   function fmt(t){ const s = Math.max(0, t); return Math.floor(s / 60) + ':' + (s % 60).toFixed(1).padStart(4, '0'); }
   function tick(){
     if(state && loadedUrl === state.url){
-      const t = running() ? (serverNow() - state.startedAt) / 1000 : null;
+      const t = running() ? (serverNow() - state.startedAt) / 1000 : paused() ? state.pausedAt : null;
       view.render(t);
       $('clock').textContent = t === null ? '' : fmt(t);
       if(chordList.length){
@@ -320,7 +338,7 @@
     selectSong(idx);
   });
   $('songNum').addEventListener('keydown', e => { if(e.key === 'Enter') $('selectNumBtn').click(); });
-  $('startBtn').addEventListener('click', start);
+  $('startBtn').addEventListener('click', toggle);
   $('stopBtn').addEventListener('click', stop);
   $('backBtn').addEventListener('click', () => nudge(-250));
   $('fwdBtn').addEventListener('click', () => nudge(250));
@@ -331,7 +349,7 @@
     if(t && (t.tagName === 'INPUT' || t.tagName === 'SELECT' || t.tagName === 'TEXTAREA')) return;
     switch(e.key){
       case ' ': case 'Spacebar': case 'Enter': case 'PageDown':
-        e.preventDefault(); if(!running()) start(); break;
+        e.preventDefault(); toggle(); break;
       case 'ArrowRight':                       // mint a sima vezérlőnél: következő dal
         e.preventDefault(); $('nextBtn').click(); break;
       case 'ArrowLeft':                        // előző dal
@@ -349,8 +367,9 @@
   let midiAccess = null;
   const onMidi = m => {
     const s = m.data[0];
-    if(s === 0xFA) start();          // Start
-    else if(s === 0xFC) stop();      // Stop
+    if(s === 0xFA){ if(ready()) kRef.update({ startedAt: SV.TIMESTAMP, pausedAt: null }); }   // Start (elejéről)
+    else if(s === 0xFB) resume();    // Continue (folytatás)
+    else if(s === 0xFC) pause();     // Stop → szünet
   };
   function bindMidi(on){
     if(!midiAccess) return;

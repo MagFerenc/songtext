@@ -114,7 +114,8 @@
 
   function tick(){
     if(state && loadedUrl === state.url){
-      const t = state.startedAt ? (serverNow() - state.startedAt) / 1000 : null;
+      const t = state.startedAt ? (serverNow() - state.startedAt) / 1000
+              : (typeof state.pausedAt === 'number' ? state.pausedAt : null);
       view.render(t);
     }
     requestAnimationFrame(tick);
