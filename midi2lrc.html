@@ -1,0 +1,182 @@
+<!DOCTYPE html><html lang="hu"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>MIDI → LRC</title><style>
+body{margin:0;font-family:system-ui,sans-serif;background:#111;color:#ddd;padding:20px}
+h1{font-size:22px;margin:0 0 6px}p{color:#999;margin:0 0 14px}
+#drop{border:3px dashed #555;border-radius:12px;padding:40px;text-align:center;color:#aaa;cursor:pointer}
+#drop.hov{border-color:#ffcc00;color:#ffcc00}
+#bar{margin-top:16px;display:none;gap:10px;align-items:center}
+button{font-size:15px;padding:8px 16px;border:0;border-radius:6px;background:#ffcc00;color:#111;cursor:pointer}
+button.sec{background:#333;color:#ddd}
+table{width:100%;border-collapse:collapse;margin-top:14px}
+td,th{padding:7px;border-bottom:1px solid #333;text-align:left;vertical-align:top}
+.ok{color:#5c5}.no{color:#e55}
+input.nm{width:100%;background:#222;color:#fff;border:1px solid #444;border-radius:4px;padding:4px;font-size:14px}
+details summary{cursor:pointer;color:#ffcc00}
+pre{white-space:pre-wrap;color:#bbb;font-size:12px;max-height:260px;overflow:auto}
+</style></head><body>
+<h1>MIDI → LRC átalakító</h1>
+<p>Húzd ide a MIDI fájlokat (akár egyszerre az összeset). A szöveget tartalmazókból LRC készül „Előadó - Cím.lrc” néven. A név letöltés előtt átírható.</p>
+<div id="drop">Húzd ide a fájlokat, vagy kattints a tallózáshoz<input id="f" type="file" accept=".mid,.midi,.kar" multiple hidden></div>
+<div id="bar"><button id="zip">⬇ Összes LRC letöltése (ZIP)</button><button class="sec" id="clr">Lista törlése</button><span id="cnt"></span></div>
+<table id="t" hidden><thead><tr><th>MIDI fájl</th><th>Szöveg</th><th>LRC fájlnév</th><th></th></tr></thead><tbody></tbody></table>
+<script>
+const dec=new TextDecoder('windows-1250');
+const items=[];
+
+// ---------- MIDI beolvasás ----------
+function parseMidi(buf){
+  const d=new DataView(buf),u=new Uint8Array(buf);
+  const s4=a=>String.fromCharCode(u[a],u[a+1],u[a+2],u[a+3]);
+  if(s4(0)!=='MThd')throw'Nem MIDI fájl';
+  const div=d.getUint16(12);let p=8+d.getUint32(4);
+  const ev=[];let trk=0;
+  while(p+8<=u.length){
+    const id=s4(p),len=d.getUint32(p+4);let q=p+8;const end=Math.min(q+len,u.length);p=q+len;
+    if(id!=='MTrk')continue;
+    let tick=0,rs=0,ord=0;
+    const vlq=()=>{let v=0,b;do{b=u[q++];v=v*128+(b&127)}while(b&128&&q<end);return v};
+    while(q<end){
+      tick+=vlq();let st=u[q];
+      if(st&128)q++;else st=rs;
+      if(st===0xFF){const ty=u[q++],l=vlq(),raw=u.slice(q,q+l);q+=l;
+        ev.push({tick,trk,ord:ord++,ty,raw,tx:dec.decode(raw)});
+        if(ty===0x2F)break;}
+      else if(st===0xF0||st===0xF7){const l=vlq();q+=l;}
+      else{rs=st;const h=st&0xF0;q+=(h===0xC0||h===0xD0)?1:2;}
+    }
+    trk++;
+  }
+  ev.sort((a,b)=>a.tick-b.tick||a.trk-b.trk||a.ord-b.ord);
+  // tempó-térkép → másodperc
+  let lastTick=0,sec=0,tempo=500000;
+  for(const e of ev){
+    sec+=(e.tick-lastTick)*tempo/1e6/div;lastTick=e.tick;e.t=sec;
+    if(e.ty===0x51&&e.raw.length===3)tempo=(e.raw[0]<<16)|(e.raw[1]<<8)|e.raw[2];
+  }
+  return ev;
+}
+
+// ---------- cím / előadó ----------
+function meta(ev,fname){
+  let title='',artist='';
+  const txt=ev.filter(e=>e.ty===1).map(e=>e.tx);
+  const xfln=txt.find(x=>x.startsWith('XFln:')),xfhd=txt.find(x=>x.startsWith('XFhd:'));
+  if(xfln){const f=xfln.split(':');if(f[2]&&f[2]!=='-')title=f[2];if(f[6]&&f[6]!=='-')artist=f[6];}
+  if(!artist&&xfhd){const f=xfhd.split(':');if(f[9]&&f[9]!=='-')artist=f[9];}
+  const atT=txt.filter(x=>x.startsWith('@T')).map(x=>x.slice(2).trim()).filter(Boolean);
+  if(!title&&atT[0])title=atT[0];
+  if(!artist&&atT[1])artist=atT[1];
+  const base=fname.replace(/\.(mid|midi|kar)$/i,'');
+  // nincs cím a fájlban → a fájlnév marad
+  if(!title)return {title:base,artist:'',fromFile:true};
+  return {title:title.trim(),artist:artist.trim()};
+}
+
+// ---------- szótagok ----------
+function syllables(ev){
+  let syl=ev.filter(e=>e.ty===5).map(e=>({t:e.t,s:e.tx}));
+  if(syl.map(x=>x.s).join('').trim().length<20){ // .kar: szöveg a text eseményekben
+    syl=ev.filter(e=>e.ty===1&&!/^(@|XF|\$)/.test(e.tx)).map(e=>({t:e.t,s:e.tx}));
+    if(syl.map(x=>x.s).join('').trim().length<20)return null;
+  }
+  return syl;
+}
+
+function toLines(syl){
+  const hasBreaks=syl.some(x=>/[\r\n\/\\]/.test(x.s));
+  const lines=[];let cur=[];
+  const flush=()=>{if(cur.length){lines.push(cur);cur=[]}};
+  for(const {t,s:raw} of syl){
+    let s=raw;
+    if(hasBreaks){
+      if(/^[\/\\]/.test(s)){flush();s=s.replace(/^[\/\\]+/,'');}
+      const endBr=/[\r\n]\s*$/.test(s);
+      s=s.replace(/[\r\n]/g,'');
+      if(s)cur.push({t,s});
+      if(endBr)flush();
+    }else{
+      if(s)cur.push({t,s});
+      if(/[,.!?;]\s*$/.test(s))flush();
+    }
+  }
+  flush();
+  // csak betűt tartalmazó sorok maradnak (pl. "---- " előszámolás kiesik)
+  return lines.filter(l=>/\p{L}/u.test(l.map(x=>x.s).join('')));
+}
+
+const ts=x=>{x=Math.max(0,x);const m=Math.floor(x/60),s=x-m*60;return String(m).padStart(2,'0')+':'+s.toFixed(2).padStart(5,'0')};
+function makeLrc(m,lines){
+  const out=[];
+  if(m.title)out.push('[ti:'+m.title+']');
+  if(m.artist)out.push('[ar:'+m.artist+']');
+  out.push('[by:MIDI → LRC]');
+  for(const l of lines)out.push('['+ts(l[0].t)+']'+l.map(x=>'<'+ts(x.t)+'>'+x.s).join('').trimEnd());
+  return out.join('\r\n')+'\r\n';
+}
+const safe=n=>n.replace(/[\\\/:*?"<>|]/g,'').replace(/\s+/g,' ').trim()||'nevtelen';
+const baseName=m=>m.fromFile?m.title:safe(m.artist?m.artist+' - '+m.title:m.title);
+
+// ---------- felület ----------
+const tb=document.querySelector('#t tbody');
+function addRow(it){
+  document.getElementById('t').hidden=false;document.getElementById('bar').style.display='flex';
+  const tr=tb.insertRow();tr.insertCell().textContent=it.file;
+  const c=tr.insertCell(),n=tr.insertCell(),a=tr.insertCell();
+  if(it.err){c.innerHTML='<span class="no">Hiba</span>';n.textContent=it.err;return}
+  if(!it.lrc){c.innerHTML='<span class="no">✘ Nincs</span>';n.textContent='Nincs benne időzített szöveg.';return}
+  c.innerHTML='<span class="ok">✔ '+it.lines+' sor</span>';
+  const inp=document.createElement('input');inp.className='nm';inp.value=it.name;
+  inp.oninput=()=>it.name=safe(inp.value.replace(/\.lrc$/i,''));
+  n.appendChild(inp);
+  const dt=document.createElement('details');dt.innerHTML='<summary>Előnézet</summary><pre></pre>';
+  dt.querySelector('pre').textContent=it.lrc;n.appendChild(dt);
+  const b=document.createElement('button');b.className='sec';b.textContent='⬇ LRC';
+  b.onclick=()=>save(new Blob([it.lrc],{type:'text/plain;charset=utf-8'}),it.name+'.lrc');a.appendChild(b);
+}
+function count(){const k=items.filter(i=>i.lrc).length;document.getElementById('cnt').textContent=k+' LRC készült / '+items.length+' fájl'}
+async function handle(fs){
+  for(const f of fs){
+    const it={file:f.name};
+    try{
+      const ev=parseMidi(await f.arrayBuffer());const syl=syllables(ev);
+      if(syl){const m=meta(ev,f.name),lines=toLines(syl);
+        if(lines.length){it.lrc=makeLrc(m,lines);it.lines=lines.length;it.name=baseName(m);}}
+    }catch(e){it.err=String(e)}
+    items.push(it);addRow(it);
+  }
+  count();
+}
+function save(blob,name){const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),2000)}
+
+// ---------- egyszerű ZIP (tömörítés nélkül) ----------
+const CRC=(()=>{const t=new Uint32Array(256);for(let n=0;n<256;n++){let c=n;for(let k=0;k<8;k++)c=c&1?0xEDB88320^(c>>>1):c>>>1;t[n]=c>>>0}return t})();
+const crc32=b=>{let c=0xFFFFFFFF;for(const x of b)c=CRC[(c^x)&255]^(c>>>8);return(c^0xFFFFFFFF)>>>0};
+function zip(files){
+  const enc=new TextEncoder(),parts=[],cen=[];let off=0;
+  for(const f of files){
+    const nm=enc.encode(f.name),data=enc.encode(f.text),crc=crc32(data);
+    const h=new DataView(new ArrayBuffer(30));
+    h.setUint32(0,0x04034b50,true);h.setUint16(4,20,true);h.setUint16(6,0x0800,true);
+    h.setUint32(14,crc,true);h.setUint32(18,data.length,true);h.setUint32(22,data.length,true);h.setUint16(26,nm.length,true);
+    parts.push(h,nm,data);
+    const c=new DataView(new ArrayBuffer(46));
+    c.setUint32(0,0x02014b50,true);c.setUint16(4,20,true);c.setUint16(6,20,true);c.setUint16(8,0x0800,true);
+    c.setUint32(16,crc,true);c.setUint32(20,data.length,true);c.setUint32(24,data.length,true);c.setUint16(28,nm.length,true);c.setUint32(42,off,true);
+    cen.push(c,nm);off+=30+nm.length+data.length;
+  }
+  const csz=cen.reduce((s,x)=>s+x.byteLength,0),e=new DataView(new ArrayBuffer(22));
+  e.setUint32(0,0x06054b50,true);e.setUint16(8,files.length,true);e.setUint16(10,files.length,true);e.setUint32(12,csz,true);e.setUint32(16,off,true);
+  return new Blob([...parts,...cen,e],{type:'application/zip'});
+}
+document.getElementById('zip').onclick=()=>{
+  const used={},files=[];
+  for(const it of items.filter(i=>i.lrc)){let n=it.name,k=2;while(used[n.toLowerCase()])n=it.name+' ('+k+++')';used[n.toLowerCase()]=1;files.push({name:n+'.lrc',text:it.lrc})}
+  if(files.length)save(zip(files),'LRC_fajlok.zip');
+};
+document.getElementById('clr').onclick=()=>{items.length=0;tb.innerHTML='';document.getElementById('t').hidden=true;document.getElementById('bar').style.display='none'};
+const dr=document.getElementById('drop'),fi=document.getElementById('f');
+dr.onclick=()=>fi.click();fi.onchange=()=>{handle([...fi.files]);fi.value=''};
+dr.ondragover=e=>{e.preventDefault();dr.classList.add('hov')};
+dr.ondragleave=()=>dr.classList.remove('hov');
+dr.ondrop=e=>{e.preventDefault();dr.classList.remove('hov');handle([...e.dataTransfer.files])};
+</script></body></html>
