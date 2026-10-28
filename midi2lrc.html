@@ -248,6 +248,7 @@ function makeLrc(m,lines,len){
   if(m.artist)out.push('[ar:'+m.artist+']');
   if(len)out.push('[length:'+ts(len)+']');   // a dal hossza — a karaoke vezérlő ennél áll le
   if(m.bpm)out.push('[tempo:'+m.bpm+']');     // eredeti tempó (BPM) — a vezérlő ehhez képest állít
+  if(m.meter)out.push('[meter:'+m.meter+']'); // ütemmutató (pl. 3/4) — a metronóm-LED ehhez igazodik
   out.push('[by:MIDI → LRC]');
   for(const l of lines)out.push('['+ts(l[0].t)+']'+l.map(x=>'<'+ts(x.t)+'>'+x.s).join('').trimEnd());
   return out.join('\r\n')+'\r\n';
@@ -293,7 +294,8 @@ async function handle(fs){
     try{
       const ev=parseMidi(await f.arrayBuffer());const syl=syllables(ev);
       if(syl){const m=meta(ev,f.name),lines=toLines(syl);
-        if(lines.length){const te=ev.find(e=>e.ty===0x51&&e.raw.length===3);if(te){const us=(te.raw[0]<<16)|(te.raw[1]<<8)|te.raw[2];m.bpm=Math.round(6e7/us*10)/10;}
+        if(lines.length){const tsg=ev.find(e=>e.ty===0x58&&e.raw.length>=2);if(tsg)m.meter=tsg.raw[0]+'/'+Math.pow(2,tsg.raw[1]);
+          const te=ev.find(e=>e.ty===0x51&&e.raw.length===3);if(te){const us=(te.raw[0]<<16)|(te.raw[1]<<8)|te.raw[2];m.bpm=Math.round(6e7/us*10)/10;}
           // a dal hossza: az utolsó hang vége (a fájl végén lévő csendet nem számítjuk)
           const lastNote=ev.reduce((a,e)=>(e.ty==='on'||e.ty==='off')?Math.max(a,e.t):a,0);
           it.lrc=makeLrc(m,lines,lastNote||ev.reduce((a,e)=>Math.max(a,e.t||0),0));it.lines=lines.length;it.name=baseName(m);

@@ -91,6 +91,10 @@
   .kv-cur.kv-chline span.on{color:#6b7280;}
   .kv-cur.kv-chline span.kv-now{color:#dc2626; font-weight:900;}
 
+  .led{flex:0 0 auto; width:18px; height:18px; border-radius:50%; background:#1f2937; border:2px solid #374151;
+       transition:background .04s, box-shadow .04s;}
+  .led.on{background:#22c55e; box-shadow:0 0 12px #22c55e; border-color:#22c55e;}
+  .led.on.one{background:#ef4444; box-shadow:0 0 14px #ef4444; border-color:#ef4444;}
   .tempoRow{display:flex; gap:8px; align-items:center; margin-top:10px;}
   .tempoRow .tlabel{color:var(--muted); font-size:.9rem; flex:0 0 auto;}
   .tempoRow button{flex:1; padding:10px;}
@@ -154,6 +158,7 @@
       <span class="tlabel">Tempó</span>
       <button id="tempoDown" disabled>− lassabb</button>
       <span id="tempoVal">—</span>
+      <span id="metro" class="led" title="metronóm: az ütem első ütése piros"></span>
       <button id="tempoUp" disabled>+ gyorsabb</button>
       <button id="tempoReset" disabled title="vissza az eredeti tempóra">↺</button>
     </div>
@@ -191,9 +196,9 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-<script src="firebase-config.js?v=202610271834"></script>
-<script src="karaoke-songs.js?v=202610271834"></script>
-<script src="karaoke-core.js?v=202610271834"></script>
+<script src="firebase-config.js?v=202610280847"></script>
+<script src="karaoke-songs.js?v=202610280847"></script>
+<script src="karaoke-core.js?v=202610280847"></script>
 <script>
   firebase.initializeApp(firebaseConfig);
   const db = firebase.database();
@@ -393,6 +398,14 @@
     if(state && loadedUrl === state.url){
       const t = karaokeTime(state, serverNow());
       view.render(t);
+      // Metronóm-LED: ütésenként villan (az ütem első ütése piros); a dal (MIDI) elejétől számolva
+      const o = origBpm(), led = $('metro');
+      if(running() && o && t !== null && t >= 0){
+        const beats = t * o / 60, frac = beats - Math.floor(beats);
+        const per = parseInt((lrcMeta.meter || '4/4').split('/')[0], 10) || 4;
+        led.classList.toggle('on', frac < 0.18);
+        led.classList.toggle('one', Math.floor(beats) % per === 0);
+      } else led.classList.remove('on', 'one');
       $('clock').textContent = t === null ? '' : fmt(t) + (songLength ? ' / ' + fmt(songLength).replace(/\.\d$/, '') : '');
       // A dal végén magától leáll (egyszer küldjük el)
       if(t !== null && songLength && t > songLength + 1 && running()){

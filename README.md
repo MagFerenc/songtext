@@ -98,6 +98,8 @@ A vezérlő lenyílójában a mappák fastruktúraként látszanak, a „Dal sz�
    gombokkal (vagy a + / − billentyűkkel) ugyanannyi BPM-mel kell állítani; **↺** = vissza az eredetire.
    Az eredeti tempót (BPM) a MIDI → LRC átalakító írja bele az LRC-be; ha egy régi fájlban
    nincs benne, a gombok %-ban lépnek.
+   A tempó mellett egy **metronóm-LED** villog ütemre (az ütem első ütése piros) — a dal
+   eredeti tempójából és ütemmutatójából ([tempo:], [meter:] az LRC-ben) számol.
 
 Ha a MIDI-t USB-n csatlakoztatott hangszer vagy lejátszó játssza, a „MIDI Start/Stop jelre”
 jelölővel a vezérlő magától indul és áll le (Chrome / Edge böngészőben).
