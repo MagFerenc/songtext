@@ -196,9 +196,9 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-<script src="firebase-config.js?v=202610280847"></script>
-<script src="karaoke-songs.js?v=202610280847"></script>
-<script src="karaoke-core.js?v=202610280847"></script>
+<script src="firebase-config.js?v=202610280917"></script>
+<script src="karaoke-songs.js?v=202610280917"></script>
+<script src="karaoke-core.js?v=202610280917"></script>
 <script>
   firebase.initializeApp(firebaseConfig);
   const db = firebase.database();
@@ -402,7 +402,9 @@
       const o = origBpm(), led = $('metro');
       if(running() && o && t !== null && t >= 0){
         const beats = t * o / 60, frac = beats - Math.floor(beats);
-        const per = parseInt((lrcMeta.meter || '4/4').split('/')[0], 10) || 4;
+        // ütésszám ütemenként, negyedekben (a BPM negyedekre vonatkozik): 3/4 → 3, 6/8 → 3, 2/4 → 2; hibás (1/4) → 4
+        const [mn, md] = (lrcMeta.meter || '4/4').split('/').map(Number);
+        let per = Math.round((mn || 4) * 4 / (md || 4)); if(!(per >= 2 && per <= 12)) per = 4;
         led.classList.toggle('on', frac < 0.18);
         led.classList.toggle('one', Math.floor(beats) % per === 0);
       } else led.classList.remove('on', 'one');
