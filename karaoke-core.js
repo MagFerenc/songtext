@@ -108,7 +108,7 @@ function compressKaraoke(lrc, chords){
     }
     ch = ch.filter((x, i) => i === 0 || x.c !== ch[i - 1].c);
   }
-  return { lrc: Object.assign({}, lrc, { lines, length }), chords: ch };
+  return { lrc: Object.assign({}, lrc, { lines, length, compressed: true }), chords: ch };
 }
 
 // Kirajzoló: előző sor, aktuális sor, alatta a következő sorok.
@@ -150,7 +150,9 @@ function KaraokeView(box, opts){
   // akkordjai egy-egy tömör "akkordsorba" kerülnek a szövegsorok közé, az idővel együtt
   function rebuild(){
     if(!base){ lrc = null; return; }
-    if(!chords){ lrc = base; return; }
+    // lerövidített dalnál (alapeset) a szöveg nélküli részeknél nincs külön akkordsor:
+    // a zenész csak a szöveg fölötti akkordokat látja
+    if(!chords || base.compressed){ lrc = base; return; }
     const L = base.lines, extra = [];
     const chordLines = (from, to) => {
       let cs = chords.filter(c => c.t >= from - 0.05 && c.t < to - 0.15 && c.c !== 'N.C.');
