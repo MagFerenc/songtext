@@ -96,10 +96,15 @@ function compressKaraoke(lrc, chords){
   let ch = chords;
   if(chords){
     ch = [];
-    for(const c of chords){                // a kivágott részben lévő akkordok közül az utolsó marad
+    // A kivágott részben lévő akkordok a vágás helyére kerülnének; ezek közül csak az marad,
+    // amelyik utána legalább egy ütemig szól (különben pl. egy fél másodperces "C" villanna fel).
+    const inCut = t => cuts.some(([a, b]) => t >= a && t < b);
+    let lastCut = false;
+    for(const c of chords){
       const x = { t: map(c.t), c: c.c };
       if(x.t > length) break;
-      if(ch.length && Math.abs(ch[ch.length - 1].t - x.t) < 1e-3) ch[ch.length - 1] = x; else ch.push(x);
+      if(ch.length && lastCut && x.t - ch[ch.length - 1].t < bar - 1e-3) ch[ch.length - 1] = x; else ch.push(x);
+      lastCut = inCut(c.t);
     }
     ch = ch.filter((x, i) => i === 0 || x.c !== ch[i - 1].c);
   }
