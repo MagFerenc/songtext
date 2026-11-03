@@ -85,8 +85,8 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-<script src="firebase-config.js?v=202610280923"></script>
-<script src="karaoke-core.js?v=202610280923"></script>
+<script src="firebase-config.js?v=202611031110"></script>
+<script src="karaoke-core.js?v=202611031110"></script>
 <script>
   firebase.initializeApp(firebaseConfig);
   const db = firebase.database();
@@ -110,7 +110,7 @@
   $('miniQrBar').addEventListener('click', () => $('bigQrOverlay').classList.add('open'));
   $('bigQrOverlay').addEventListener('click', () => $('bigQrOverlay').classList.remove('open'));
 
-  let state = null, loadedUrl = null, loadToken = 0, loadedFull = false;
+  let state = null, loadedUrl = null, loadToken = 0, loadedFull = false, loadedGap = 'none';
 
   function tick(){
     if(state && loadedUrl === state.url){
@@ -136,12 +136,12 @@
     $('idleScreen').style.display = 'none';
     $('songScreen').style.display = 'flex';
     $('songTitleBar').textContent = state.title || '';
-    if(state.url !== loadedUrl || !!state.full !== loadedFull){
-      const my = ++loadToken, url = state.url, full = !!state.full;
-      loadedUrl = null; loadedFull = full; view.clear(); $('msg').textContent = 'Betöltés…';
+    if(state.url !== loadedUrl || !!state.full !== loadedFull || (state.gap || 'none') !== loadedGap){
+      const my = ++loadToken, url = state.url, full = !!state.full, gap = state.gap || 'none';
+      loadedUrl = null; loadedFull = full; loadedGap = gap; view.clear(); $('msg').textContent = 'Betöltés…';
       fetchLrc(url).then(lrc => {
         if(my !== loadToken) return;
-        if(!full) lrc = compressKaraoke(lrc).lrc;   // szöveg nélküli részek lerövidítve (mint a vezérlőn)
+        if(!full) lrc = compressKaraoke(lrc, null, gap).lrc;   // szöveg nélküli részek lerövidítve (mint a vezérlőn)
         $('msg').textContent = lrc.lines.length ? '' : 'A dalszöveg üres.';
         view.load(lrc); loadedUrl = url;
       }).catch(e => {

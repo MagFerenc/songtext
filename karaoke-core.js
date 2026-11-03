@@ -66,6 +66,13 @@ function parseLrc(text){
 // Ezért az előjáték, a hosszú közjátékok és az utójáték alapból lerövidül: ahol nincs szöveg,
 // legfeljebb kb. 2 ütemnyi (min. 4 mp) szünet marad. Mindig egész ütemeket vágunk ki, így a
 // metronóm-LED üteme nem csúszik el. A vezérlőn kérésre kikapcsolható (teljes hossz).
+//
+// Szünet a dal KÖZEPÉN (versszakok között) — a vezérlőn választható, a nézőknél is így megy:
+//   'none'   = nincs szünet (ALAPÉRTELMEZÉS): a következő sor rögtön jön (1 ütemnél kevesebb marad)
+//   'short'  = rövid, kb. 1 ütem a levegővételhez, visszaszámlálás nélkül
+//   'chords' = 2 ütem; a vezérlőn látszanak a közjáték akkordjai, és ütésre visszaszámol (4-3-2-1)
+// Az előjáték (2 ütem + visszaszámlálás) és az utójáték mindhárom esetben ugyanaz marad.
+const KARAOKE_GAP_MODES = ['none', 'short', 'chords'];
 const KARAOKE_GAP_BARS = 2;   // legalább ennyi ütem szünet marad
 const KARAOKE_GAP_MIN = 4;    // … és legalább ennyi másodperc (gyors daloknál több ütem)
 function karaokeBar(meta){                 // egy ütem hossza másodpercben ([tempo:] és [meter:] alapján)
@@ -73,12 +80,15 @@ function karaokeBar(meta){                 // egy ütem hossza másodpercben ([t
   const [n, d] = ((meta && meta.meter) || '4/4').split('/').map(Number);
   return (n > 0 ? n : 4) * (4 / (d > 0 ? d : 4)) * 60 / bpm;
 }
-function compressKaraoke(lrc, chords){
+function compressKaraoke(lrc, chords, gapMode){
   if(!lrc || !lrc.lines.length) return { lrc, chords };
+  if(!KARAOKE_GAP_MODES.includes(gapMode)) gapMode = 'none';
   const bar = karaokeBar(lrc.meta), L = lrc.lines, cuts = [];
   const keep = Math.max(KARAOKE_GAP_BARS, Math.ceil(KARAOKE_GAP_MIN / bar)) * bar;   // egész ütemek
+  // dal közben ennyi marad: 'none' → 0 (csak a töredék ütem), 'short' → 1 ütem, 'chords' → mint fent
+  const keepMid = gapMode === 'chords' ? keep : gapMode === 'short' ? bar : 0;
   const cut = (from, to, middle) => {
-    const n = Math.floor((to - from - keep) / bar + 1e-6);
+    const n = Math.floor((to - from - (middle ? keepMid : keep)) / bar + 1e-6);
     if(n < 1) return;
     const len = n * bar, a = middle ? from + (to - from - len) / 2 : from;
     cuts.push([a, a + len]);
@@ -108,7 +118,7 @@ function compressKaraoke(lrc, chords){
     }
     ch = ch.filter((x, i) => i === 0 || x.c !== ch[i - 1].c);
   }
-  return { lrc: Object.assign({}, lrc, { lines, length, compressed: true }), chords: ch };
+  return { lrc: Object.assign({}, lrc, { lines, length, compressed: true, gapMode }), chords: ch };
 }
 
 // Kirajzoló: előző sor, aktuális sor, alatta a következő sorok.
@@ -152,7 +162,8 @@ function KaraokeView(box, opts){
     if(!base){ lrc = null; return; }
     // lerövidített dalnál (alapeset) a szöveg nélküli részeknél nincs külön akkordsor:
     // a zenész csak a szöveg fölötti akkordokat látja
-    if(!chords || base.compressed){ lrc = base; return; }
+    // ('chords' szünet-módban viszont igen: a megmaradt 2 ütem közjáték akkordjai látszanak)
+    if(!chords || (base.compressed && base.gapMode !== 'chords')){ lrc = base; return; }
     const L = base.lines, extra = [];
     const chordLines = (from, to) => {
       let cs = chords.filter(c => c.t >= from - 0.05 && c.t < to - 0.15 && c.c !== 'N.C.');
@@ -261,12 +272,30 @@ function KaraokeView(box, opts){
         return;
       }
       // Hangszeres rész: a sor már véget ért, és a következő még messze van (> 2,5 mp szünet)
+      // Lerövidített dalnál dal közben csak 'chords' módban van külön szünet-kijelzés;
+      // 'none' / 'short' módban a szöveg egyszerűen megy tovább, visszaszámlálás nélkül.
       const cur = lrc.lines[i], nx = lrc.lines[i + 1];
-      if(nx && t > cur.end && nx.t - cur.end > 2.5){
+      const midGap = !base.compressed || base.gapMode === 'chords';
+      // visszaszámlálás ütésre: az utolsó ütemben 4-3-2-1 (3/4-ben 3-2-1)
+      const beat = karaokeBar(lrc.meta) / (parseInt(((lrc.meta && lrc.meta.meter) || '4/4'), 10) || 4);
+      const beatsLeft = left => (left > 0 && left <= karaokeBar(lrc.meta) + 0.01) ? Math.ceil(left / beat - 1e-3) : 0;
+      if(cur.chordOnly && nx){           // akkordsor (csak a vezérlőn): az akkordok fölött ütésre számol
+        if(shownIdx !== i){ shownIdx = i; setLines(i - 1, i); el.prev._cd = null; el.prev._txt = el.prev.textContent; }
+        const cd = beatsLeft(nx.t - t);
+        if(el.prev._cd !== cd){
+          el.prev._cd = cd;
+          if(cd) el.prev.innerHTML = '<span class="kv-cd">' + cd + '</span>';
+          else el.prev.textContent = el.prev._txt;
+        }
+        spans.forEach(sp => sp.classList.toggle('on', sp._t <= t));
+        let nowCh = null; for(const sp of spans) if(sp._t <= t) nowCh = sp;
+        spans.forEach(sp => sp.classList.toggle('kv-now', sp === nowCh));
+        return;
+      }
+      if(midGap && nx && t > cur.end && nx.t - cur.end > 2.5){
         const key = 'gap' + i;
         if(shownIdx !== key){ shownIdx = key; setLines(i, i + 1); el.prev._txt = el.prev.textContent; }
-        const left = nx.t - t;
-        const cd = left <= KARAOKE_COUNTDOWN ? Math.ceil(left) : 0;
+        const cd = beatsLeft(nx.t - t);
         if(el.prev._cd !== cd){
           el.prev._cd = cd;
           if(cd) el.prev.innerHTML = '<span class="kv-cd">' + cd + '</span>';
