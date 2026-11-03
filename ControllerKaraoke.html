@@ -176,6 +176,7 @@
       <kbd>+</kbd> <kbd>−</kbd> = tempó
     </div>
     <label class="opt"><input type="checkbox" id="midiChk"> Indítás MIDI Start/Stop jelre (USB-n csatlakoztatott hangszer/lejátszó) <span id="midiState"></span></label>
+    <label class="opt"><input type="checkbox" id="instrChk"> Akkordok a szöveg nélküli részeknél is (előjáték, közjáték, utójáték)</label>
 
     <div class="qrSection">
       <p>Oszd meg másokkal — olvassák be a QR-kódot</p>
@@ -212,6 +213,13 @@
   const $ = id => document.getElementById(id);
   const SONGS = KARAOKE_SONGS;
   const view = KaraokeView($('kv'), { next: 4 });
+  // Szöveg nélküli részek akkordjai: alapból nem látszanak, csak ha bekapcsolják (a gép megjegyzi)
+  try{ $('instrChk').checked = localStorage.getItem('kvInstrChords') === '1'; }catch(e){}
+  view.setInstrChords($('instrChk').checked);
+  $('instrChk').addEventListener('change', () => {
+    view.setInstrChords($('instrChk').checked);
+    try{ localStorage.setItem('kvInstrChords', $('instrChk').checked ? '1' : '0'); }catch(e){}
+  });
   keepScreenAwake();            // a vezérlő képernyője se sötétüljön el
 
   // ---- QR a viewerKaraoke.html-re (ugyanabban a mappában) ----

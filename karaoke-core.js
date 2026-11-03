@@ -95,12 +95,14 @@ function KaraokeView(box, opts){
   let nextCount = opts.next === 'auto' ? (opts.min || 4) : (opts.next || 2);
   makeNexts(nextCount);
   let base = null, lrc = null, chords = null, shownIdx = null, spans = [];
+  let instr = !!opts.instrChords;   // a szöveg nélküli (hangszeres) részek akkordjai is látszódjanak-e
 
   // Csak a vezérlőn (ha van akkord): a hangszeres részek (eleje, versszakok közötti rész, vége)
-  // akkordjai egy-egy tömör "akkordsorba" kerülnek a szövegsorok közé, az idővel együtt
+  // akkordjai egy-egy tömör "akkordsorba" kerülnek a szövegsorok közé, az idővel együtt —
+  // de csak ha kérik (instr); alapból a szöveg nélküli részeknél nincs akkord
   function rebuild(){
     if(!base){ lrc = null; return; }
-    if(!chords){ lrc = base; return; }
+    if(!chords || !instr){ lrc = base; return; }
     const L = base.lines, extra = [];
     const chordLines = (from, to) => {
       let cs = chords.filter(c => c.t >= from - 0.05 && c.t < to - 0.15 && c.c !== 'N.C.');
@@ -193,6 +195,7 @@ function KaraokeView(box, opts){
   return {
     load(parsed){ base = parsed; rebuild(); shownIdx = null; if(box._refit) box._refit(); this.render(null); },
     setChords(list){ chords = list && list.length ? list : null; rebuild(); shownIdx = null; },
+    setInstrChords(on){ instr = !!on; rebuild(); shownIdx = null; },
     clear(){ base = null; lrc = null; chords = null; shownIdx = null; [el.prev, el.cur, ...nexts].forEach(e => { e.textContent = ''; e.classList.remove('kv-hasch'); }); },
     // t: eltelt másodperc a dal indítása óta; null = még nem indult
     render(t){
