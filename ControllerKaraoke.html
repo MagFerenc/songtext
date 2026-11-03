@@ -51,6 +51,26 @@
   button.primary:hover{background:#16a34a;}
   button.big{font-size:1.25rem; padding:16px;}
   button:disabled{opacity:.4; cursor:default;}
+  /* Kereső */
+  .searchBox{position:relative; margin-bottom:10px;}
+  #searchIn{
+    width:100%; padding:10px 36px 10px 12px; border-radius:8px; border:1px solid #374151;
+    background:#111827; color:var(--text); font-size:1rem;
+  }
+  #searchIn:focus{outline:none; border-color:var(--accent);}
+  #searchClr{position:absolute; right:4px; top:4px; padding:6px 10px; background:none; color:var(--muted); display:none;}
+  #searchRes{
+    display:none; position:absolute; left:0; right:0; top:100%; z-index:50; margin-top:4px;
+    max-height:60vh; overflow-y:auto; background:#0b1220; border:1px solid #374151; border-radius:8px;
+    box-shadow:0 10px 30px rgba(0,0,0,.5);
+  }
+  .sr{padding:9px 12px; cursor:pointer; border-bottom:1px solid #1f2937;}
+  .sr:last-child{border-bottom:none;}
+  .sr:hover, .sr.sel{background:#1f2937;}
+  .sr b{color:var(--text);} .sr .num{color:var(--muted); font-size:.85rem; margin-right:6px;}
+  .sr .ar{color:var(--muted); font-size:.9rem;}
+  .sr mark{background:none; color:var(--yellow); font-weight:700;}
+  .srInfo{padding:9px 12px; color:var(--muted); font-size:.85rem;}
   .numrow{display:flex; gap:10px;}
   .numrow input{flex:1;}
   .numrow button{flex:0 0 auto;}
@@ -131,6 +151,12 @@
       <span id="categoryBadge"></span>
     </div>
     <p class="sub">Válaszd ki a dalt, majd indítsd el a zenével egyszerre — a nézők telefonján szinkronban fut a szöveg.</p>
+
+    <div class="searchBox">
+      <input type="text" id="searchIn" placeholder="🔍 Keresés: címrészlet, előadó vagy szám…" autocomplete="off">
+      <button id="searchClr" title="Törlés">✕</button>
+      <div id="searchRes"></div>
+    </div>
 
     <select id="songSelect" style="margin-top:4px;"></select>
 
@@ -456,6 +482,64 @@
   $('stopBtn').addEventListener('click', stop);
   $('backBtn').addEventListener('click', () => nudge(-250));
   $('fwdBtn').addEventListener('click', () => nudge(250));
+
+  // ---- Kereső: a cím bármely részlete, előadó, dalszám vagy mappa — ékezettől függetlenül ----
+  {
+    const norm = x => (x || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9]+/g, ' ').trim();
+    const esc = x => x.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+    const info = SONGS.map(s => norm([s.id, s.title, s.artist, ...folderPath(s).map(p => p.name)].join(' ')));
+    // kiemelés: a találat helye a (nem normalizált) szövegben — betűnként összevetve
+    function hilite(text, words){
+      const chars = [...text], map = [], nc = [];
+      chars.forEach((c, i) => { const n = norm(c) || ' '; for(const x of n){ nc.push(x); map.push(i); } });
+      const ns = nc.join(''), on = new Array(chars.length).fill(false);
+      for(const w of words){ let p = -1; while((p = ns.indexOf(w, p + 1)) >= 0) for(let j = p; j < p + w.length; j++) on[map[j]] = true; }
+      let out = '', open = false;
+      chars.forEach((c, i) => { if(on[i] && !open){ out += '<mark>'; open = true; } if(!on[i] && open){ out += '</mark>'; open = false; } out += esc(c); });
+      return out + (open ? '</mark>' : '');
+    }
+    const box = $('searchRes'), inp = $('searchIn');
+    let hits = [], sel = -1;
+    function search(){
+      const q = norm(inp.value), words = q.split(' ').filter(Boolean);
+      $('searchClr').style.display = inp.value ? 'block' : 'none';
+      if(!words.length){ box.style.display = 'none'; hits = []; return; }
+      // minden beírt szó(részlet)nek szerepelnie kell (sorrend mindegy); előre a címben találtak
+      hits = [];
+      SONGS.forEach((s, i) => {
+        if(!words.every(w => info[i].includes(w))) return;
+        const t = norm(s.title), score = t.startsWith(q) ? 0 : words.every(w => t.includes(w)) ? 1 : 2;
+        hits.push({ i, score });
+      });
+      hits.sort((a, b) => a.score - b.score || a.i - b.i);
+      const total = hits.length; hits = hits.slice(0, 80);
+      sel = hits.length ? 0 : -1;
+      box.innerHTML = hits.length ? hits.map((h, k) => {
+        const s = SONGS[h.i];
+        return `<div class="sr${k === sel ? ' sel' : ''}" data-k="${k}"><span class="num">${hilite(String(s.id), words)}.</span><b>${hilite(s.title, words)}</b>` +
+          (s.artist && !s.title.includes(s.artist) ? ` <span class="ar">– ${hilite(s.artist, words)}</span>` : '') + '</div>';
+      }).join('') + (total > hits.length ? `<div class="srInfo">… és még ${total - hits.length} találat — írj be többet</div>` : '')
+        : '<div class="srInfo">Nincs találat.</div>';
+      box.style.display = 'block';
+    }
+    function pick(k){
+      const h = hits[k]; if(!h) return;
+      selectSong(h.i); inp.value = ''; search(); inp.blur();
+    }
+    function mark(){ box.querySelectorAll('.sr').forEach((d, k) => { d.classList.toggle('sel', k === sel); if(k === sel) d.scrollIntoView({ block: 'nearest' }); }); }
+    inp.addEventListener('input', search);
+    inp.addEventListener('focus', () => { if(inp.value) search(); });
+    inp.addEventListener('keydown', e => {
+      if(e.key === 'ArrowDown'){ e.preventDefault(); if(hits.length){ sel = (sel + 1) % hits.length; mark(); } }
+      else if(e.key === 'ArrowUp'){ e.preventDefault(); if(hits.length){ sel = (sel - 1 + hits.length) % hits.length; mark(); } }
+      else if(e.key === 'Enter'){ e.preventDefault(); pick(sel); }
+      else if(e.key === 'Escape'){ inp.value = ''; search(); inp.blur(); }
+    });
+    box.addEventListener('mousedown', e => { const d = e.target.closest('.sr'); if(d){ e.preventDefault(); pick(+d.dataset.k); } });
+    inp.addEventListener('blur', () => setTimeout(() => { box.style.display = 'none'; }, 150));
+    $('searchClr').addEventListener('click', () => { inp.value = ''; search(); inp.focus(); });
+  }
 
   // ---- Billentyű / Bluetooth lapozópedál ----
   document.addEventListener('keydown', e => {
