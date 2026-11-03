@@ -110,7 +110,7 @@
   $('miniQrBar').addEventListener('click', () => $('bigQrOverlay').classList.add('open'));
   $('bigQrOverlay').addEventListener('click', () => $('bigQrOverlay').classList.remove('open'));
 
-  let state = null, loadedUrl = null, loadToken = 0;
+  let state = null, loadedUrl = null, loadToken = 0, loadedFull = false;
 
   function tick(){
     if(state && loadedUrl === state.url){
@@ -136,11 +136,12 @@
     $('idleScreen').style.display = 'none';
     $('songScreen').style.display = 'flex';
     $('songTitleBar').textContent = state.title || '';
-    if(state.url !== loadedUrl){
-      const my = ++loadToken, url = state.url;
-      view.clear(); $('msg').textContent = 'Betöltés…';
+    if(state.url !== loadedUrl || !!state.full !== loadedFull){
+      const my = ++loadToken, url = state.url, full = !!state.full;
+      loadedUrl = null; loadedFull = full; view.clear(); $('msg').textContent = 'Betöltés…';
       fetchLrc(url).then(lrc => {
         if(my !== loadToken) return;
+        if(!full) lrc = compressKaraoke(lrc).lrc;   // szöveg nélküli részek lerövidítve (mint a vezérlőn)
         $('msg').textContent = lrc.lines.length ? '' : 'A dalszöveg üres.';
         view.load(lrc); loadedUrl = url;
       }).catch(e => {

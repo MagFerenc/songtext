@@ -61,6 +61,51 @@ function parseLrc(text){
   return { meta, lines, length };
 }
 
+// ---------- Szöveg nélküli részek kihagyása ----------
+// Élőben nincs alatta MIDI-zene: Ferenc harmonikán kíséri az akkordok alapján, a nézők énekelnek.
+// Ezért az előjáték, a hosszú közjátékok és az utójáték alapból lerövidül: ahol nincs szöveg,
+// legfeljebb kb. 2 ütemnyi (min. 4 mp) szünet marad. Mindig egész ütemeket vágunk ki, így a
+// metronóm-LED üteme nem csúszik el. A vezérlőn kérésre kikapcsolható (teljes hossz).
+const KARAOKE_GAP_BARS = 2;   // legalább ennyi ütem szünet marad
+const KARAOKE_GAP_MIN = 4;    // … és legalább ennyi másodperc (gyors daloknál több ütem)
+function karaokeBar(meta){                 // egy ütem hossza másodpercben ([tempo:] és [meter:] alapján)
+  const bpm = parseFloat(meta && meta.tempo) > 0 ? parseFloat(meta.tempo) : 120;
+  const [n, d] = ((meta && meta.meter) || '4/4').split('/').map(Number);
+  return (n > 0 ? n : 4) * (4 / (d > 0 ? d : 4)) * 60 / bpm;
+}
+function compressKaraoke(lrc, chords){
+  if(!lrc || !lrc.lines.length) return { lrc, chords };
+  const bar = karaokeBar(lrc.meta), L = lrc.lines, cuts = [];
+  const keep = Math.max(KARAOKE_GAP_BARS, Math.ceil(KARAOKE_GAP_MIN / bar)) * bar;   // egész ütemek
+  const cut = (from, to, middle) => {
+    const n = Math.floor((to - from - keep) / bar + 1e-6);
+    if(n < 1) return;
+    const len = n * bar, a = middle ? from + (to - from - len) / 2 : from;
+    cuts.push([a, a + len]);
+  };
+  cut(0, L[0].t, false);                                              // előjáték
+  for(let k = 0; k + 1 < L.length; k++) cut(L[k].end, L[k + 1].t, true); // közjátékok
+  const map = t => {
+    let s = 0;
+    for(const [a, b] of cuts){ if(t >= b) s += b - a; else if(t > a) return a - s; else break; }
+    return t - s;
+  };
+  const lines = L.map(l => Object.assign({}, l, { t: map(l.t), end: map(l.end), syl: l.syl.map(x => ({ t: map(x.t), s: x.s })) }));
+  const lastEnd = lines[lines.length - 1].end;
+  const length = Math.min(lrc.length ? map(lrc.length) : Infinity, lastEnd + keep);   // utójáték
+  let ch = chords;
+  if(chords){
+    ch = [];
+    for(const c of chords){                // a kivágott részben lévő akkordok közül az utolsó marad
+      const x = { t: map(c.t), c: c.c };
+      if(x.t > length) break;
+      if(ch.length && Math.abs(ch[ch.length - 1].t - x.t) < 1e-3) ch[ch.length - 1] = x; else ch.push(x);
+    }
+    ch = ch.filter((x, i) => i === 0 || x.c !== ch[i - 1].c);
+  }
+  return { lrc: Object.assign({}, lrc, { lines, length }), chords: ch };
+}
+
 // Kirajzoló: előző sor, aktuális sor, alatta a következő sorok.
 //   opts.next: hány következő sor látszódjon (szám), vagy 'auto' = amennyi kifér (min. opts.min)
 // Akkordokat csak akkor mutat, ha setChords()-szal kap — ezt csak a vezérlő hívja, a néző nem.
@@ -95,14 +140,12 @@ function KaraokeView(box, opts){
   let nextCount = opts.next === 'auto' ? (opts.min || 4) : (opts.next || 2);
   makeNexts(nextCount);
   let base = null, lrc = null, chords = null, shownIdx = null, spans = [];
-  let instr = !!opts.instrChords;   // a szöveg nélküli (hangszeres) részek akkordjai is látszódjanak-e
 
   // Csak a vezérlőn (ha van akkord): a hangszeres részek (eleje, versszakok közötti rész, vége)
-  // akkordjai egy-egy tömör "akkordsorba" kerülnek a szövegsorok közé, az idővel együtt —
-  // de csak ha kérik (instr); alapból a szöveg nélküli részeknél nincs akkord
+  // akkordjai egy-egy tömör "akkordsorba" kerülnek a szövegsorok közé, az idővel együtt
   function rebuild(){
     if(!base){ lrc = null; return; }
-    if(!chords || !instr){ lrc = base; return; }
+    if(!chords){ lrc = base; return; }
     const L = base.lines, extra = [];
     const chordLines = (from, to) => {
       let cs = chords.filter(c => c.t >= from - 0.05 && c.t < to - 0.15 && c.c !== 'N.C.');
@@ -195,7 +238,6 @@ function KaraokeView(box, opts){
   return {
     load(parsed){ base = parsed; rebuild(); shownIdx = null; if(box._refit) box._refit(); this.render(null); },
     setChords(list){ chords = list && list.length ? list : null; rebuild(); shownIdx = null; },
-    setInstrChords(on){ instr = !!on; rebuild(); shownIdx = null; },
     clear(){ base = null; lrc = null; chords = null; shownIdx = null; [el.prev, el.cur, ...nexts].forEach(e => { e.textContent = ''; e.classList.remove('kv-hasch'); }); },
     // t: eltelt másodperc a dal indítása óta; null = még nem indult
     render(t){

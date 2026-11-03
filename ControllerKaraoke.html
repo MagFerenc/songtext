@@ -176,7 +176,7 @@
       <kbd>+</kbd> <kbd>−</kbd> = tempó
     </div>
     <label class="opt"><input type="checkbox" id="midiChk"> Indítás MIDI Start/Stop jelre (USB-n csatlakoztatott hangszer/lejátszó) <span id="midiState"></span></label>
-    <label class="opt"><input type="checkbox" id="instrChk"> Akkordok a szöveg nélküli részeknél is (előjáték, közjáték, utójáték)</label>
+    <label class="opt"><input type="checkbox" id="fullChk"> Szöveg nélküli részek teljes hosszban (előjáték, közjáték, utójáték) — alapból ezek lerövidülnek, mert nincs alatta zene</label>
 
     <div class="qrSection">
       <p>Oszd meg másokkal — olvassák be a QR-kódot</p>
@@ -213,13 +213,6 @@
   const $ = id => document.getElementById(id);
   const SONGS = KARAOKE_SONGS;
   const view = KaraokeView($('kv'), { next: 4 });
-  // Szöveg nélküli részek akkordjai: alapból nem látszanak, csak ha bekapcsolják (a gép megjegyzi)
-  try{ $('instrChk').checked = localStorage.getItem('kvInstrChords') === '1'; }catch(e){}
-  view.setInstrChords($('instrChk').checked);
-  $('instrChk').addEventListener('change', () => {
-    view.setInstrChords($('instrChk').checked);
-    try{ localStorage.setItem('kvInstrChords', $('instrChk').checked ? '1' : '0'); }catch(e){}
-  });
   keepScreenAwake();            // a vezérlő képernyője se sötétüljön el
 
   // ---- QR a viewerKaraoke.html-re (ugyanabban a mappában) ----
@@ -283,7 +276,7 @@
   let currentIndex = -1;
   let state = null;          // ami a Firebase-ben van: { id, title, url, startedAt, pauseAt, pausedAt, minT }
                              //   (lásd karaokeTime() a karaoke-core.js-ben)
-  let loadedUrl = null, loadToken = 0, chordList = [], songLength = null, autoStopped = false;
+  let loadedUrl = null, loadedFull = false, loadToken = 0, chordList = [], songLength = null, autoStopped = false;
 
   function songLabel(i){ return (i >= 0 && i < SONGS.length) ? `${SONGS[i].id}. ${fullTitle(SONGS[i])}` : '—'; }
   function updateNavHints(){
@@ -295,7 +288,7 @@
   function selectSong(index){
     if(index < 0 || index >= SONGS.length) return;
     const song = SONGS[index];
-    kRef.set({ index, id: song.id, title: fullTitle(song), url: song.url, startedAt: null, updatedAt: SV.TIMESTAMP });
+    kRef.set({ index, id: song.id, title: fullTitle(song), url: song.url, startedAt: null, updatedAt: SV.TIMESTAMP, full: (state && state.full) || null });
   }
 
   const D = KARAOKE_SYNC_DELAY;
@@ -304,6 +297,12 @@
   const active  = () => !!(state && state.startedAt);
   const ready   = () => !!(state && state.url && loadedUrl === state.url);
   const CLEAR = { pauseAt: null, pausedAt: null, minT: null };
+  // Szöveg nélküli részek: alapból lerövidítve; bekapcsolva teljes hosszban (a nézőknél is).
+  // Váltáskor a dal leáll, mert az időzítés megváltozik.
+  $('fullChk').addEventListener('change', () => {
+    if(!state || !state.url){ return; }
+    kRef.update({ full: $('fullChk').checked || null, startedAt: null, ...CLEAR });
+  });
   function start(){            // elejéről
     if(ready() && !active()) kRef.update({ startedAt: SV.TIMESTAMP, ...CLEAR });
   }
@@ -384,11 +383,13 @@
     updateNavHints();
     $('status').innerHTML = (running() ? '▶ Most szól: ' : paused() ? '⏸ Szünet: ' : 'Kiválasztva: ') + '<b></b>';
     $('status').querySelector('b').textContent = state.title || '';
-    if(state.url !== loadedUrl){
-      const my = ++loadToken, url = state.url;
-      loadedUrl = null; view.clear(); chordList = []; lrcMeta = {}; $('previewMsg').textContent = 'Betöltés…';
+    $('fullChk').checked = !!state.full;
+    if(state.url !== loadedUrl || !!state.full !== loadedFull){
+      const my = ++loadToken, url = state.url, full = !!state.full;
+      loadedUrl = null; loadedFull = full; view.clear(); chordList = []; lrcMeta = {}; $('previewMsg').textContent = 'Betöltés…';
       Promise.all([fetchLrc(url), fetchChords(url)]).then(([lrc, ch]) => {
         if(my !== loadToken) return;
+        if(!full) ({ lrc, chords: ch } = compressKaraoke(lrc, ch));   // szöveg nélküli részek lerövidítve
         $('previewMsg').textContent = lrc.lines.length ? '' : 'A dalszöveg üres.';
         chordList = ch; view.setChords(ch); songLength = lrc.length; lrcMeta = lrc.meta || {};
         view.load(lrc); loadedUrl = url; updateButtons();
