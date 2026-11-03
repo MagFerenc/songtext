@@ -22,6 +22,10 @@ Minden dal mellé „….akkord.lrc” fájl is készül: ha a MIDI-ben vannak a
 <input id="f" type="file" accept=".mid,.midi,.kar" multiple hidden><input id="d" type="file" webkitdirectory multiple hidden></div>
 <div style="margin-top:10px;display:flex;gap:16px;align-items:center;flex-wrap:wrap"><button class="sec" id="dirBtn">📁 Egész mappa kiválasztása</button>
 <label style="color:#ccc;font-size:14px"><input type="checkbox" id="simpleCh" checked> egyszerű akkordok (csak dúr, moll, 7-es) — fájlok behúzása előtt állítsd</label></div>
+<div style="margin-top:8px;display:flex;gap:16px;align-items:center;flex-wrap:wrap;color:#ccc;font-size:14px">Alapból kimarad az LRC-ből:
+<label><input type="checkbox" id="keepCue"> zenész-utasítások is kerüljenek bele (Solo Channel 4!, Kiállás…, Közj: Channel 7!)</label>
+<label><input type="checkbox" id="keepVoc"> szöveg nélküli, csak vokál sorok is kerüljenek bele (la-la-la, ooo, na-na-na)</label>
+<small style="color:#888">— átkattintva a lista azonnal frissül</small></div>
 <div id="bar"><button id="zip">⬇ Összes LRC letöltése (ZIP)</button><button class="sec" id="clr">Lista törlése</button><label style="color:#ccc;font-size:14px"><input type="checkbox" id="withCh" checked> akkord fájlokkal együtt</label><span id="cnt"></span></div>
 <table id="t" hidden><thead><tr><th>MIDI fájl</th><th>Szöveg</th><th>LRC fájlnév</th><th></th></tr></thead><tbody></tbody></table>
 <script>
@@ -241,6 +245,44 @@ function toLines(syl){
   return lines.filter(l=>/\p{L}/u.test(l.map(x=>x.s).join('')));
 }
 
+// ---------- zenész-utasítások és csak-vokál sorok ----------
+// Zenész-utasítás a sor ELEJÉN (pl. "Solo Channel 4!", "Kiallas...Solo Upper2 Jatszani!", "Kozj: Channel7!")
+const CUE=[
+  /^\s*ki[aá]ll[aá]s[!.]+\s*/iu,
+  /^\s*(?:solo|sz[oó]l[oó])(?!\p{L})(?=[\s.:!]*(?:ch|can|upper|lower|part|t[aá]nc|$|[!.]))[\s.:]*(?:(?:upper|lower|part|t[aá]nc)\s*\d*[!.\s]*)?/iu,
+  /^\s*\p{L}+\s*:\s*(?=ch|can)/iu,
+  /^\s*(?:ch(?:an+el)?|can+el)\s*\d[\d\s+]*[!.\s]*/iu,
+];
+const CUE_AFTER=/^\s*\+?\s*j[aá]tszani[!.\s]*/iu;   // csak egy másik utasítás után
+function stripCue(l){
+  const s=l.map(x=>x.s).join('');let cut=0,any=false;
+  for(let go=true;go;){go=false;const rest=s.slice(cut);
+    for(const re of any?[...CUE,CUE_AFTER]:CUE){const m=rest.match(re);if(m&&m[0].length){cut+=m[0].length;any=go=true;break;}}}
+  if(!cut)return l;
+  const out=[];let pos=0;
+  for(const x of l){const a=pos,b=pos+x.s.length;pos=b;
+    if(b<=cut)continue;
+    out.push(a>=cut?x:{t:x.t,s:x.s.slice(cut-a)});}
+  return out;
+}
+// Csak vokál (értelmes szó nélküli) sor: la-la-la, ooo, na-na-na, pá-pápá, oh yeah…
+const VOC_TOK=/^(?:la|lá|na|ná|pa|pá|ba|bá|da|dá|du|dú|dam|dum|dap|ram|pam|sa|sha|wo|woo|ou|yeah|ye|hey|oh|ah|uh|aha|oho|a|á|o|ó|ö|u|ú|e|é|i)+$|^h?m+$|^m+hm+$/i;
+function isVocal(l){
+  const w=l.map(x=>x.s).join('').toLowerCase().replace(/(\p{L})\1+/gu,'$1').split(/[^\p{L}]+/u).filter(Boolean);
+  return w.length>0&&w.every(x=>VOC_TOK.test(x));
+}
+const hasLetter=l=>/\p{L}/u.test(l.map(x=>x.s).join(''));
+function filterLines(lines){
+  const keepCue=document.getElementById('keepCue').checked,keepVoc=document.getElementById('keepVoc').checked;
+  const out=[];let cue=0,voc=0;
+  for(let l of lines){
+    if(!keepCue){const c=stripCue(l);if(c!==l){cue++;l=c;if(!l.length||!hasLetter(l))continue;}}
+    if(!keepVoc&&isVocal(l)){voc++;continue;}
+    out.push(l);
+  }
+  return {lines:out,cue,voc};
+}
+
 const ts=x=>{x=Math.max(0,x);const m=Math.floor(x/60),s=x-m*60;return String(m).padStart(2,'0')+':'+s.toFixed(2).padStart(5,'0')};
 function makeLrc(m,lines,len){
   const out=[];
@@ -271,7 +313,8 @@ function addRow(it){
   const c=tr.insertCell(),n=tr.insertCell(),a=tr.insertCell();
   if(it.err){c.innerHTML='<span class="no">Hiba</span>';n.textContent=it.err;return}
   if(!it.lrc){c.innerHTML='<span class="no">✘ Nincs</span>';n.textContent='Nincs benne időzített szöveg.';return}
-  c.innerHTML='<span class="ok">✔ '+it.lines+' sor</span><br><small style="color:#999">akkord: '+(it.chords?(it.chSrc==='xf'?'✔ a fájlból':'≈ becsült'):'—')+'</small>';
+  const sk=[it.cue?it.cue+' zenész-utasítás':'',it.voc?it.voc+' vokál sor':''].filter(Boolean).join(', ');
+  c.innerHTML='<span class="ok">✔ '+it.lines+' sor</span><br>'+(sk?'<small style="color:#999">kihagyva: '+sk+'</small><br>':'')+'<small style="color:#999">akkord: '+(it.chords?(it.chSrc==='xf'?'✔ a fájlból':'≈ becsült'):'—')+'</small>';
   const inp=document.createElement('input');inp.className='nm';inp.value=it.name;
   inp.oninput=()=>it.name=safe(inp.value.replace(/\.lrc$/i,''));
   n.appendChild(inp);
@@ -298,7 +341,7 @@ async function handle(fs){
           const te=ev.find(e=>e.ty===0x51&&e.raw.length===3);if(te){const us=(te.raw[0]<<16)|(te.raw[1]<<8)|te.raw[2];m.bpm=Math.round(6e7/us*10)/10;}
           // a dal hossza: az utolsó hang vége (a fájl végén lévő csendet nem számítjuk)
           const lastNote=ev.reduce((a,e)=>(e.ty==='on'||e.ty==='off')?Math.max(a,e.t):a,0);
-          it.lrc=makeLrc(m,lines,lastNote||ev.reduce((a,e)=>Math.max(a,e.t||0),0));it.lines=lines.length;it.name=baseName(m);
+          it.m=m;it.all=lines;it.len=lastNote||ev.reduce((a,e)=>Math.max(a,e.t||0),0);it.name=baseName(m);build(it);
           let ch=xfChords(ev),src='xf';
           if(ch.length<2){ch=estimateChords(ev,(ev.find(e=>e.ty===5)||{}).trk);src='est';}
           if(ch.length){it.chords=makeChords(m,ch,src);it.chSrc=src;it.chN=ch.length;}}}
@@ -307,6 +350,18 @@ async function handle(fs){
   }
   count();
 }
+// LRC (újra)építése a kihagyási beállítások szerint
+function build(it){
+  if(!it.all)return;
+  const f=filterLines(it.all);
+  it.cue=f.cue;it.voc=f.voc;it.lines=f.lines.length;
+  it.lrc=f.lines.length?makeLrc(it.m,f.lines,it.len):null;
+}
+function rebuild(){
+  items.forEach(build);tb.innerHTML='';items.forEach(addRow);count();
+}
+document.getElementById('keepCue').onchange=rebuild;
+document.getElementById('keepVoc').onchange=rebuild;
 function save(blob,name){const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),2000)}
 
 // ---------- egyszerű ZIP (tömörítés nélkül) ----------
