@@ -7,6 +7,10 @@
 //                      +------ főkategória (9 = Magyar)
 //   pl. 90101 = Magyar / 01 Ad Studio / 1. dal
 //
+// A PDF-es dalok karaoke változata 1000 alatti számot kap, ugyanazt, mint a PDF
+// (pl. 151 = Régi csibészek), és ugyanolyan nevű mappába kerül:
+//   Karaoke/150-rock/151-Regi-csibeszek.lrc   (a PDF: Dalok/150-rock/151-Regi-csibeszek.pdf)
+//
 // A mappák a Karaoke mappán belül vannak; a vezérlő lenyílójában fastruktúraként
 // látszanak (a mappaneveket az url-ből veszi), pl.:
 //   Karaoke/900-Magyar/01-Ad Studio/90101-A Nap szerelmese.lrc
@@ -24,6 +28,39 @@
 // FIGYELEM: minden sor végén kell vessző, az utolsó után nem!
 // ============================================================
 const KARAOKE_SONGS = [
+  // ---- A PDF-es dalok karaoke változata: ugyanaz a szám és mappa, mint a Dalok/ alatt ----
+  { id: 101, title: "Boldog születésnapot", artist: "Halász Judit", url: "Karaoke/100-szulinap/101-Boldog-szuletesnapot.lrc" },
+  { id: 151, title: "Régi csibészek", artist: "Omega", url: "Karaoke/150-rock/151-Regi-csibeszek.lrc" },
+  { id: 152, title: "Gyöngyhajú lány", artist: "Omega", url: "Karaoke/150-rock/152-Gyongyhaju-lany.lrc" },
+  { id: 153, title: "Valaki mondja meg", artist: "LGT", url: "Karaoke/150-rock/153-Valaki-mondja-meg.lrc" },
+  { id: 154, title: "Pocsolyába léptem", artist: "Takáts Tamás", url: "Karaoke/150-rock/154-Pocsolyaba-leptem.lrc" },
+  { id: 155, title: "Évszakok", artist: "Balázs Fecó", url: "Karaoke/150-rock/155-Evszakok.lrc" },
+  { id: 156, title: "Légy ma éjjel a társam", artist: "Fenyő Miklós", url: "Karaoke/150-rock/156-Legy-ma-ejjel-a-tarsam.lrc" },
+  { id: 157, title: "Közeli helyeken", artist: "Bikini", url: "Karaoke/150-rock/157-Kozeli-helyeken.lrc" },
+  { id: 160, title: "Európa", artist: "Varga Miklós", url: "Karaoke/150-rock/160-Europa.lrc" },
+  { id: 161, title: "Kell még egy szó (Honfoglalás)", artist: "Kormorán", url: "Karaoke/150-rock/161-Kell-meg-egy-szo.lrc" },
+  { id: 202, title: "Mindig kell egy barát", artist: "", url: "Karaoke/200-Pop/202-Mindig-kell-egy-barat.lrc" },
+  { id: 203, title: "Szép nyári nap", artist: "", url: "Karaoke/200-Pop/203-Szep-nyari-nap.lrc" },
+  { id: 204, title: "Jó az álmodozás", artist: "Mount Blanc", url: "Karaoke/200-Pop/204-Jo-az-almodozas.lrc" },
+  { id: 206, title: "A távollét", artist: "Szécsi Pál", url: "Karaoke/200-Pop/206-A-tavollet.lrc" },
+  { id: 207, title: "Gyöngéden ölelj át", artist: "Nino Rota", url: "Karaoke/200-Pop/207-Gyongeden-olelj-at.lrc" },
+  { id: 208, title: "Levél a távolból", artist: "Fonográf", url: "Karaoke/200-Pop/208-Level-a-tavolbol.lrc" },
+  { id: 209, title: "Millió rózsaszál", artist: "Csongrádi Kata", url: "Karaoke/200-Pop/209-Millio-rozsaszal.lrc" },
+  { id: 211, title: "Húsz év múlva", artist: "Komár László", url: "Karaoke/200-Pop/211-Husz-ev-mulva.lrc" },
+  { id: 212, title: "Azok a szép napok (Those were the days)", artist: "", url: "Karaoke/200-Pop/212-Azok-a-szep-napok.lrc" },
+  { id: 213, title: "Mama kérlek", artist: "Koncz Zsuzsa", url: "Karaoke/200-Pop/213-Mama-kerlek.lrc" },
+  { id: 302, title: "Country Road", artist: "", url: "Karaoke/300-nemzetkozi/302-Country-Road.lrc" },
+  { id: 404, title: "Pedro kocsmája", artist: "", url: "Karaoke/400-mulatos/404-Pedro-kocsmaja.lrc" },
+  { id: 406, title: "Újra itt van a nagy csapat", artist: "", url: "Karaoke/400-mulatos/406-Ujra-itt-van-a-nagy-csapat.lrc" },
+  { id: 413, title: "Jaj, cica", artist: "", url: "Karaoke/400-mulatos/413-Jaj-cica.lrc" },
+  { id: 451, title: "Isten véled, édes Piroskám", artist: "Aradszky László", url: "Karaoke/450-mulatos-fox/451-Isten-veled-edes-Piroskam.lrc" },
+  { id: 452, title: "Próbálj meg lazítani", artist: "Balázs Pali", url: "Karaoke/450-mulatos-fox/452-Probalj-meg-lazitani.lrc" },
+  { id: 453, title: "Pókháló az ablakon (A régi kunyhó)", artist: "Aradszky László", url: "Karaoke/450-mulatos-fox/453-Pokhalo-az-ablakon.lrc" },
+  { id: 454, title: "Szállj, szállj madár", artist: "Solymos Toni", url: "Karaoke/450-mulatos-fox/454-Szallj-szallj-madar.lrc" },
+  { id: 502, title: "Most múlik pontosan", artist: "Csík zenekar", url: "Karaoke/500-nepi/502-Most-mulik-pontosan.lrc" },
+  { id: 608, title: "Elment a Lidi néni a vásárba", artist: "", url: "Karaoke/600-cigany/608-Elment-a-Lidi-neni-a-vasarba.lrc" },
+
+  // ---- Ömlesztett magyar karaoke (900-Magyar) ----
   { id: 90001, title: "Taka taka", artist: "", url: "Karaoke/900-Magyar/90001-Taka taka.lrc" },
   { id: 90101, title: "A Nap szerelmese", artist: "Ad Studio", url: "Karaoke/900-Magyar/01-Ad Studio/90101-A Nap szerelmese.lrc" },
   { id: 90102, title: "Álmaimban Amerika", artist: "Ad Studio", url: "Karaoke/900-Magyar/01-Ad Studio/90102-Álmaimban Amerika.lrc" },
