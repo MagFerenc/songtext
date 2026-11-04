@@ -34,6 +34,21 @@
   .r .num{color:var(--muted); font-size:.85rem; margin-right:6px;}
   .r .fk{color:var(--yellow); font-weight:700;}
 
+  /* mappafa */
+  #tree{margin-top:6px; background:#0b1220; border-radius:8px; padding:6px 4px; max-height:60vh; overflow-y:auto;}
+  #tree details{margin-left:14px;}
+  #tree > details{margin-left:0;}
+  #tree summary{cursor:pointer; padding:5px 6px; border-radius:6px; list-style:none; user-select:none;}
+  #tree summary::-webkit-details-marker{display:none;}
+  #tree summary::before{content:'▸'; display:inline-block; width:1em; color:var(--muted);}
+  #tree details[open] > summary::before{content:'▾';}
+  #tree summary:hover{background:#1f2937;}
+  #tree summary .c{color:var(--muted); font-size:.82rem; margin-left:6px;}
+  #tree .songs{margin-left:28px;}
+  #tree .tr{display:flex; align-items:center; gap:8px; padding:4px 6px; border-bottom:1px solid #111827;}
+  #tree .tr .t{flex:1; min-width:0;}
+  #tree .tr .num{color:var(--muted); font-size:.82rem; margin-right:6px;}
+  #tree .tr .fk{color:var(--yellow); font-weight:700; font-size:.9rem;}
   /* kedvencek */
   #list{margin-top:6px;}
   .f{display:flex; align-items:center; gap:8px; padding:8px 10px; border-bottom:1px solid #111827; background:#0b1220;}
@@ -58,6 +73,10 @@
   <h2>Dal hozzáadása</h2>
   <input type="text" id="q" placeholder="🔍 Keresés: címrészlet, előadó, szám vagy mappa…" autocomplete="off">
   <div id="res"></div>
+
+  <h2>Böngészés mappák szerint</h2>
+  <div class="muted">Kattints egy mappára a kinyitáshoz. Látszik, hány dal van benne; a dal melletti gombbal kedvencnek veheted.</div>
+  <div id="tree"></div>
 
   <h2>Kedvencek (<span id="cnt">0</span>)</h2>
   <div class="muted">A K szám átírható: írj be egy új számot, és nyomj Entert. Ha a szám foglalt, a két dal helyet cserél.
@@ -89,7 +108,7 @@
   const folderOf = s => s.url.split('/').slice(1, -1).map(p => p.replace(/^(\d+)-/, '$1 ')).join(' › ');
 
   let favs = [];
-  const FAV = watchFavorites(db, SONGS, list => { favs = list; renderList(); search(); });
+  const FAV = watchFavorites(db, SONGS, list => { favs = list; renderList(); search(); refreshTree(); });
   const favOfIndex = i => favs.find(f => f.index === i);
 
   // ---- lista ----
@@ -168,6 +187,53 @@
     const b = e.target.closest('button[data-i]'); if(!b) return;
     FAV.add(SONGS[+b.dataset.i], FAV.nextFree(favs));
   });
+
+  // ---- mappafa: a dalok url-jéből (Karaoke/150-rock/…, Karaoke/950-Osszes/HORVATH/…) ----
+  // A mappák csak kinyitáskor töltik be a dalaikat, így több ezer dal mellett is gyors.
+  const treeRoot = { name: '', dirs: new Map(), songs: [], count: 0 };
+  SONGS.forEach((s, i) => {
+    const parts = s.url.split('/').slice(1, -1);
+    let n = treeRoot; n.count++;
+    for(const p of parts){
+      if(!n.dirs.has(p)) n.dirs.set(p, { name: p, dirs: new Map(), songs: [], count: 0 });
+      n = n.dirs.get(p); n.count++;
+    }
+    n.songs.push(i);
+  });
+  const dirLabel = p => p.replace(/^(\d+)-/, '$1 ');
+  function songRow(i){
+    const s = SONGS[i], d = document.createElement('div');
+    d.className = 'tr'; d.dataset.i = i;
+    d.innerHTML = `<span class="t"><span class="num">${s.id}.</span><b>${esc(s.title)}</b>${s.artist && !s.title.includes(s.artist) ? ' <span class="muted">– ' + esc(s.artist) + '</span>' : ''}</span><span class="act"></span>`;
+    fillAct(d); return d;
+  }
+  function fillAct(d){
+    const i = +d.dataset.i, f = favOfIndex(i), a = d.querySelector('.act');
+    a.innerHTML = f ? `<span class="fk">★ K${f.k}</span>` : `<button class="small primary">+ K${FAV.nextFree(favs)}</button>`;
+    const b = a.querySelector('button'); if(b) b.onclick = () => FAV.add(SONGS[i], FAV.nextFree(favs));
+  }
+  function buildDir(node, parentEl){
+    const sorted = [...node.dirs.values()].sort((a, b) => a.name.localeCompare(b.name, 'hu', { numeric: true }));
+    for(const c of sorted){
+      const det = document.createElement('details');
+      const sum = document.createElement('summary');
+      sum.innerHTML = '📁 ' + esc(dirLabel(c.name)) + `<span class="c">(${c.count} dal)</span>`;
+      det.appendChild(sum);
+      det.addEventListener('toggle', () => {
+        if(!det.open || det._built) return;
+        det._built = true;
+        buildDir(c, det);
+        if(c.songs.length){
+          const box = document.createElement('div'); box.className = 'songs';
+          c.songs.slice().sort((a, b) => SONGS[a].id - SONGS[b].id).forEach(i => box.appendChild(songRow(i)));
+          det.appendChild(box);
+        }
+      });
+      parentEl.appendChild(det);
+    }
+  }
+  buildDir(treeRoot, $('tree'));
+  function refreshTree(){ $('tree').querySelectorAll('.tr').forEach(fillAct); }
 
   // ---- mentés / visszatöltés ----
   $('saveBtn').addEventListener('click', () => {
