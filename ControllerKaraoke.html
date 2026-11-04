@@ -219,7 +219,7 @@
         <option value="chords">2 ütem, akkordokkal + visszaszámlálás</option>
       </select></label>
     <label class="opt"><input type="checkbox" id="fullChk"> Zenei részek akkordjai is (ének nélkül)</label>
-    <label class="opt"><input type="checkbox" id="favOnlyChk"> ⭐ Lapozás csak a kedvencek között (K1, K2, … sorrendben)</label>
+    <label class="opt"><input type="checkbox" id="favOnlyChk" checked> ⭐ Lapozás csak a kedvencek között (K1, K2, … sorrendben)</label>
 
     <div class="qrSection">
       <p>Oszd meg másokkal — olvassák be a QR-kódot</p>
@@ -360,7 +360,8 @@
     else FAV.add(SONGS[currentIndex], FAV.nextFree(favs));   // a következő szabad K szám; átírni a rendező lapon lehet
   });
   // lapozás csak a kedvencek között (a beállítás ezen a gépen megmarad)
-  try{ $('favOnlyChk').checked = localStorage.getItem('karaokeFavOnly') === '1'; }catch(e){}
+  $('favOnlyChk').checked = true;   // alapból bekapcsolva; ha valaki kikapcsolja, ezen a gépen úgy marad
+  try{ if(localStorage.getItem('karaokeFavOnly') === '0') $('favOnlyChk').checked = false; }catch(e){}
   $('favOnlyChk').addEventListener('change', () => { try{ localStorage.setItem('karaokeFavOnly', $('favOnlyChk').checked ? '1' : '0'); }catch(e){} updateNavHints(); });
   const favOnly = () => $('favOnlyChk').checked && favs.some(f => f.index >= 0);
   function stepIndex(dir){                          // a következő / előző dal indexe (-1, ha nincs)
