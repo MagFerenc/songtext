@@ -69,6 +69,8 @@
   .sr:hover, .sr.sel{background:#1f2937;}
   .sr b{color:var(--text);} .sr .num{color:var(--muted); font-size:.85rem; margin-right:6px;}
   .sr .ar{color:var(--muted); font-size:.9rem;}
+  .sr .path{display:block; color:#6b7280; font-size:.78rem; margin-top:2px;
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
   .sr mark{background:none; color:var(--yellow); font-weight:700;}
   .srInfo{padding:9px 12px; color:var(--muted); font-size:.85rem;}
   .numrow{display:flex; gap:10px;}
@@ -518,7 +520,9 @@
       box.innerHTML = hits.length ? hits.map((h, k) => {
         const s = SONGS[h.i];
         return `<div class="sr${k === sel ? ' sel' : ''}" data-k="${k}"><span class="num">${hilite(String(s.id), words)}.</span><b>${hilite(s.title, words)}</b>` +
-          (s.artist && !s.title.includes(s.artist) ? ` <span class="ar">– ${hilite(s.artist, words)}</span>` : '') + '</div>';
+          (s.artist && !s.title.includes(s.artist) ? ` <span class="ar">– ${hilite(s.artist, words)}</span>` : '') +
+          // melyik mappában van (minden szint), hogy két azonos nevű dal megkülönböztethető legyen
+          `<span class="path">📁 ${folderPath(s).map(p => hilite((p.num ? p.num + ' ' : '') + p.name, words)).join(' › ')}</span></div>`;
       }).join('') + (total > hits.length ? `<div class="srInfo">… és még ${total - hits.length} találat — írj be többet</div>` : '')
         : '<div class="srInfo">Nincs találat.</div>';
       box.style.display = 'block';
