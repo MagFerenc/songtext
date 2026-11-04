@@ -56,22 +56,6 @@
   #bigQr img, #bigQr canvas{display:block; width:min(80vw, 70vh); height:min(80vw, 70vh);}
   #bigQrOverlay p{margin:0; font-size:1rem; color:#f9fafb;}
   #bigQrOverlay small{color:#9ca3af; font-size:.8rem;}
-
-  /* Kedvencek listája — a közönség szám szerint kérhet dalt */
-  .favOpen{background:#1f2937; color:#facc15; border:1px solid #374151; border-radius:999px;
-    padding:8px 16px; font-size:.95rem; font-weight:600; cursor:pointer; display:none;}
-  #miniQrBar .favOpen{padding:6px 12px; font-size:.85rem; margin-right:auto;}
-  #favOverlay{display:none; position:fixed; inset:0; z-index:110; background:rgba(11,18,32,.97);
-    flex-direction:column; text-align:left;}
-  #favOverlay.open{display:flex;}
-  #favHead{display:flex; align-items:center; justify-content:space-between; padding:14px 18px;
-    background:#111827; border-bottom:1px solid #1f2937; font-weight:700; font-size:1.1rem;}
-  #favClose{background:none; border:none; color:#9ca3af; font-size:1.5rem; cursor:pointer;}
-  #favHint{padding:8px 18px; color:#9ca3af; font-size:.85rem;}
-  #favList{flex:1; overflow-y:auto; padding:0 12px 20px;}
-  .fv{display:flex; gap:12px; align-items:baseline; padding:10px 6px; border-bottom:1px solid #1f2937; font-size:1.05rem;}
-  .fv b{color:#facc15; min-width:3.2em; text-align:right;}
-  .fv small{color:#9ca3af;}
 </style>
 </head>
 <body>
@@ -81,23 +65,15 @@
     <p id="waitMsg" style="display:none;">🎤 Karaoke — várakozás, hogy az operátor kiválasszon egy dalt…</p>
     <div id="qrBox" style="display:none;"></div>
     <p id="qrCaption" style="display:none;">Oszd meg másokkal — olvassák be a QR-kódot</p>
-    <button class="favOpen" id="favOpen1">⭐ Kedvenc dalok listája</button>
   </div>
 
   <div id="songScreen">
     <div id="songTitleBar"></div>
     <div id="lyrics"><div id="kv"></div><div id="msg"></div></div>
     <div id="miniQrBar">
-      <button class="favOpen" id="favOpen2">⭐ Dallista</button>
       <span>Oszd meg — koppints a QR-kódra a nagyításhoz</span>
       <div id="miniQr"></div>
     </div>
-  </div>
-
-  <div id="favOverlay">
-    <div id="favHead"><span>⭐ Kedvenc dalok</span><button id="favClose" aria-label="Bezárás">✕</button></div>
-    <div id="favHint">Kérj dalt a száma alapján (pl. „a K12-est”)!</div>
-    <div id="favList"></div>
   </div>
 
   <div id="bigQrOverlay">
@@ -111,7 +87,6 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script src="firebase-config.js?v=202611031110"></script>
 <script src="karaoke-core.js?v=202611031110"></script>
-<script src="karaoke-kedvencek.js?v=202611040900"></script>
 <script>
   firebase.initializeApp(firebaseConfig);
   const db = firebase.database();
@@ -134,25 +109,6 @@
   }
   $('miniQrBar').addEventListener('click', () => $('bigQrOverlay').classList.add('open'));
   $('bigQrOverlay').addEventListener('click', () => $('bigQrOverlay').classList.remove('open'));
-
-  // ---- Kedvencek listája (csak olvasás) ----
-  watchFavorites(db, [], favs => {
-    const has = favs.length > 0;
-    ['favOpen1', 'favOpen2'].forEach(id => $(id).style.display = has ? 'inline-block' : 'none');
-    $('favList').innerHTML = '';
-    for(const f of favs){
-      const d = document.createElement('div'); d.className = 'fv';
-      const b = document.createElement('b'); b.textContent = 'K' + f.k;
-      const t = document.createElement('span'); t.textContent = f.title;
-      d.append(b, t);
-      if(f.artist && !f.title.includes(f.artist)){ const a = document.createElement('small'); a.textContent = '– ' + f.artist; d.append(a); }
-      $('favList').appendChild(d);
-    }
-  });
-  const openFav = e => { e.stopPropagation(); $('favOverlay').classList.add('open'); };
-  $('favOpen1').addEventListener('click', openFav);
-  $('favOpen2').addEventListener('click', openFav);
-  $('favClose').addEventListener('click', () => $('favOverlay').classList.remove('open'));
 
   let state = null, loadedUrl = null, loadToken = 0, loadedFull = false, loadedGap = 'none';
 
