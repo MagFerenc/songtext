@@ -242,9 +242,9 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script src="firebase-config.js?v=202611031110"></script>
-<script src="karaoke-songs.js?v=202611031110"></script>
+<script src="karaoke-songs.js?v=202611041110"></script>
 <script src="karaoke-core.js?v=202611031110"></script>
-<script src="karaoke-kedvencek.js?v=202611040900"></script>
+<script src="karaoke-kedvencek.js?v=202611041110"></script>
 <script>
   firebase.initializeApp(firebaseConfig);
   const db = firebase.database();
@@ -290,7 +290,11 @@
     ph.value = ''; ph.textContent = '— válassz dalt —'; ph.disabled = true; ph.selected = true;
     songSelect.appendChild(ph);
     let group = null, groupKey = null, openPath = [];
+    // Az „Összes” gyűjtemény (950-…) több ezer dal: nem kerül a lenyílóba, csak a keresővel / számmal érhető el
+    const BIG = s => /^Karaoke\/950-/.test(s.url);
+    const bigCount = SONGS.filter(BIG).length;
     SONGS.forEach((s, i) => {
+      if(BIG(s)) return;
       const path = folderPath(s);
       const top = path[0] || { num: '', name: 'Egyéb' };
       if(top.num + top.name !== groupKey){
@@ -315,6 +319,11 @@
       opt.textContent = NBSP.repeat(2 + sub.length * 4) + `${s.id}. ${s.title}`;
       group.appendChild(opt);
     });
+    if(bigCount){
+      const g = document.createElement('optgroup');
+      g.label = `📁 950 Összes — ${bigCount} dal: a fenti keresővel vagy a dal számával`;
+      songSelect.appendChild(g);
+    }
   }
 
   // ---- Kedvencek (Firebase) — a lista tetején külön csoport, K szám szerint ----
