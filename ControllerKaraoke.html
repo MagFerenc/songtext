@@ -64,6 +64,13 @@
   }
   #searchIn:focus{outline:none; border-color:var(--accent);}
   #searchClr{position:absolute; right:4px; top:4px; padding:6px 10px; background:none; color:var(--muted); display:none;}
+  #numWrap{position:relative; flex:1; min-width:0;}
+  #numWrap input{width:100%;}
+  #numRes{
+    display:none; position:absolute; left:0; right:0; top:100%; z-index:50; margin-top:4px;
+    max-height:50vh; overflow-y:auto; background:#0b1220; border:1px solid #374151; border-radius:8px;
+    box-shadow:0 10px 30px rgba(0,0,0,.5);
+  }
   #searchRes{
     display:none; position:absolute; left:0; right:0; top:100%; z-index:50; margin-top:4px;
     max-height:60vh; overflow-y:auto; background:#0b1220; border:1px solid #374151; border-radius:8px;
@@ -177,7 +184,10 @@
 
     <div class="numrow" style="align-items:center; margin-top:12px;">
       <label for="songNum" style="margin:0; flex:0 0 auto; white-space:nowrap;">Dal száma</label>
-      <input type="text" id="songNum" inputmode="text" autocomplete="off" placeholder="pl. 151 vagy K7 (kedvenc)">
+      <div id="numWrap">
+        <input type="text" id="songNum" inputmode="text" autocomplete="off" placeholder="pl. 151 vagy K7 (kedvenc)">
+        <div id="numRes"></div>
+      </div>
       <button id="selectNumBtn" class="primary">Kiválaszt</button>
     </div>
 
@@ -556,9 +566,51 @@
       idx = SONGS.findIndex(s => s.id === num);
       if(idx === -1){ alert('Nincs ilyen számú karaoke dal.'); return; }
     }
-    selectSong(idx); $('songNum').value = '';
+    selectSong(idx); $('songNum').value = ''; $('numRes').style.display = 'none';
   });
-  $('songNum').addEventListener('keydown', e => { if(e.key === 'Enter') $('selectNumBtn').click(); });
+  // ---- „Dal száma” szűrőként: gépelés közben listázza a így kezdődő számú dalokat ----
+  //   „K15” → a K15, K150, K151 … kedvencek;  „15” → előbb a K15… kedvencek, utána a 15… számú dalok
+  {
+    const inp = $('songNum'), box = $('numRes');
+    let hits = [], sel = -1;
+    const label = s => fullTitle(s);
+    function update(){
+      const raw = inp.value.trim(), m = /^(k?)\s*(\d*)$/i.exec(raw);
+      if(!raw || !m || (!m[1] && !m[2])){ box.style.display = 'none'; hits = []; return; }
+      const onlyK = !!m[1], d = m[2];
+      hits = [];
+      for(const f of favs) if(f.index >= 0 && String(f.k).startsWith(d)) hits.push({ i: f.index, tag: 'K' + f.k, fav: true });
+      if(!onlyK && d) SONGS.forEach((s, i) => { if(String(s.id).startsWith(d)) hits.push({ i, tag: String(s.id) }); });
+      // pontos egyezés előre
+      hits.sort((a, b) => ((b.tag.replace('K', '') === d) - (a.tag.replace('K', '') === d)) || (!!b.fav - !!a.fav) ||
+        (a.tag.length - b.tag.length) || a.tag.localeCompare(b.tag, 'hu', { numeric: true }));
+      const total = hits.length; hits = hits.slice(0, 60);
+      sel = hits.length ? 0 : -1;
+      box.innerHTML = hits.length ? hits.map((h, k) =>
+        `<div class="sr${k === sel ? ' sel' : ''}" data-k="${k}">` +
+        (h.fav ? `<span class="fk">★ ${h.tag}</span>` : `<span class="num">${h.tag}.</span>`) +
+        `<b></b><span class="path"></span></div>`).join('') + (total > hits.length ? `<div class="srInfo">… és még ${total - hits.length} — írj be több számjegyet</div>` : '')
+        : '<div class="srInfo">Nincs ilyen számú dal.</div>';
+      box.querySelectorAll('.sr').forEach((d, k) => {
+        const so = SONGS[hits[k].i];
+        d.querySelector('b').textContent = label(so);
+        d.querySelector('.path').textContent = '📁 ' + folderPath(so).map(p => (p.num ? p.num + ' ' : '') + p.name).join(' › ');
+      });
+      box.style.display = 'block';
+    }
+    function mark(){ box.querySelectorAll('.sr').forEach((d, k) => { d.classList.toggle('sel', k === sel); if(k === sel) d.scrollIntoView({ block: 'nearest' }); }); }
+    function pick(k){ const h = hits[k]; if(!h) return; selectSong(h.i); inp.value = ''; update(); inp.blur(); }
+    inp.addEventListener('input', update);
+    inp.addEventListener('focus', () => { if(inp.value) update(); });
+    inp.addEventListener('keydown', e => {
+      if(e.key === 'ArrowDown'){ e.preventDefault(); if(hits.length){ sel = (sel + 1) % hits.length; mark(); } }
+      else if(e.key === 'ArrowUp'){ e.preventDefault(); if(hits.length){ sel = (sel - 1 + hits.length) % hits.length; mark(); } }
+      else if(e.key === 'Enter'){ e.preventDefault(); if(hits.length && sel >= 0) pick(sel); else $('selectNumBtn').click(); }
+      else if(e.key === 'Escape'){ inp.value = ''; update(); inp.blur(); }
+    });
+    box.addEventListener('mousedown', e => { const d = e.target.closest('.sr'); if(d){ e.preventDefault(); pick(+d.dataset.k); } });
+    inp.addEventListener('blur', () => setTimeout(() => { box.style.display = 'none'; }, 150));
+  }
   $('startBtn').addEventListener('click', toggle);
   $('stopBtn').addEventListener('click', stop);
   $('backBtn').addEventListener('click', () => nudge(-250));
