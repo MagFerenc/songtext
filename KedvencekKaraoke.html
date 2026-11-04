@@ -66,7 +66,6 @@
   <div id="empty">Még nincs kedvenc. Fent keress rá egy dalra, és add hozzá — vagy a vezérlőn nyomd meg a ☆ gombot.</div>
 
   <div class="bar">
-    <button id="pdfBtn">📄 PDF-es dalok felvétele (K szám = a PDF száma)</button>
     <button id="renumBtn">🔢 Számok rendbetétele (K1, K2, K3 … hézag nélkül)</button>
     <button id="saveBtn">💾 Mentés fájlba</button>
     <button id="loadBtn">📂 Visszatöltés fájlból</button>
@@ -78,7 +77,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
 <script src="firebase-config.js?v=202611031110"></script>
-<script src="karaoke-songs.js?v=202611041110"></script>
+<script src="karaoke-songs.js?v=202611041120"></script>
 <script src="karaoke-kedvencek.js?v=202611041110"></script>
 <script>
   firebase.initializeApp(firebaseConfig);
@@ -132,18 +131,6 @@
     }
     FAV.setK(f.key, k);
   }
-  // A PDF-es dalok karaoke változata (1000 alatti számok) kedvenc lesz, K szám = a dal száma (pl. K151).
-  // A már kedvenc dalokhoz nem nyúl; ha a szám foglalt, a következő szabadot kapja.
-  $('pdfBtn').addEventListener('click', () => {
-    const todo = SONGS.map((s, i) => ({ s, i })).filter(x => x.s.id < 1000 && !favOfIndex(x.i));
-    if(!todo.length){ alert('Minden PDF-es dal már a kedvencek között van.'); return; }
-    if(!confirm(`${todo.length} PDF-es dal kerül a kedvencek közé, a saját számukkal (pl. K151). Mehet?`)) return;
-    const used = new Set(favs.map(f => f.k)), clash = [];
-    for(const { s } of todo){ if(used.has(s.id)) clash.push(s); else { used.add(s.id); FAV.add(s, s.id); } }
-    // ha a szám már foglalt (más dalé), 900 fölötti szabad számot kap, hogy a többiek a sajátjukat kapják
-    for(const s of clash){ let k = 900; while(used.has(k)) k++; used.add(k); FAV.add(s, k); }
-    if(clash.length) alert(clash.length + ' dal száma már foglalt volt, ezek 900 fölötti K számot kaptak: ' + clash.map(s => s.title).join(', '));
-  });
   $('renumBtn').addEventListener('click', () => {
     if(!favs.length) return;
     if(!confirm('A kedvencek a mostani sorrendjükben K1-től kezdve hézag nélkül újraszámozódnak — a PDF-es számok (pl. K151) is megváltoznak! Mehet?')) return;
