@@ -4,6 +4,7 @@
 - 📄 **[Viewer — kijelző](https://magferenc.github.io/songtext/viewer.html)** — ezt nyisd meg a kijelzőn / tableten
 - 🎤 **[Karaoke vezérlő](https://magferenc.github.io/songtext/ControllerKaraoke.html)** — karaoke dal kiválasztása és indítása
 - 📱 **[Karaoke kijelző](https://magferenc.github.io/songtext/viewerKaraoke.html)** — a nézők ezen látják a futó szöveget
+- ⭐ **[Kedvencek rendezése](https://magferenc.github.io/songtext/KedvencekKaraoke.html)** — a karaoke kedvencek K számai, sorrendje, mentése
 - 🛠️ **[MIDI → LRC átalakító](https://magferenc.github.io/songtext/midi2lrc.html)** — karaoke-MIDI-ből időzített dalszöveg
 
 ---
