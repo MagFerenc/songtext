@@ -31,7 +31,7 @@
   }
   p.sub{color:var(--muted); margin:0 0 20px; font-size:.9rem;}
   label{display:block; font-size:.85rem; color:var(--muted); margin:16px 0 6px;}
-  select, input[type=number]{
+  select, input[type=number], #songNum{
     width:100%; padding:10px; border-radius:8px; border:1px solid #374151;
     background:#111827; color:var(--text); font-size:1rem;
   }
@@ -51,6 +51,11 @@
   button.primary:hover{background:#16a34a;}
   button.big{font-size:1.25rem; padding:16px;}
   button:disabled{opacity:.4; cursor:default;}
+  /* Kedvencek */
+  #favBtn{flex:0 0 auto; padding:5px 12px; font-size:.95rem; border-radius:999px; background:#111827;
+    border:1px solid #374151; color:var(--muted); display:none;}
+  #favBtn.on{color:var(--yellow); border-color:var(--yellow); font-weight:700;}
+  .sr .fk{color:var(--yellow); font-weight:700; margin-right:6px;}
   /* Kereső */
   .searchBox{position:relative; margin-bottom:10px;}
   #searchIn{
@@ -150,7 +155,10 @@
   <div class="card">
     <div class="titleRow">
       <h1>🎤 Karaoke vezérlő</h1>
-      <span id="categoryBadge"></span>
+      <span style="display:flex; gap:8px; align-items:flex-start;">
+        <button id="favBtn" title="Kedvencekhez ad / kivesz">☆ Kedvenc</button>
+        <span id="categoryBadge"></span>
+      </span>
     </div>
     <p class="sub">Válaszd ki a dalt, majd indítsd el a zenével egyszerre — a nézők telefonján szinkronban fut a szöveg.</p>
 
@@ -169,7 +177,7 @@
 
     <div class="numrow" style="align-items:center; margin-top:12px;">
       <label for="songNum" style="margin:0; flex:0 0 auto; white-space:nowrap;">Dal száma</label>
-      <input type="number" id="songNum" min="1" placeholder="pl. 90101">
+      <input type="text" id="songNum" inputmode="text" autocomplete="off" placeholder="pl. 151 vagy K7 (kedvenc)">
       <button id="selectNumBtn" class="primary">Kiválaszt</button>
     </div>
 
@@ -211,6 +219,7 @@
         <option value="chords">2 ütem, akkordokkal + visszaszámlálás</option>
       </select></label>
     <label class="opt"><input type="checkbox" id="fullChk"> Zenei részek akkordjai is (ének nélkül)</label>
+    <label class="opt"><input type="checkbox" id="favOnlyChk"> ⭐ Lapozás csak a kedvencek között (K1, K2, … sorrendben)</label>
 
     <div class="qrSection">
       <p>Oszd meg másokkal — olvassák be a QR-kódot</p>
@@ -219,6 +228,7 @@
       <span id="qrLink"></span>
     </div>
 
+    <div class="tools">⭐ <a href="KedvencekKaraoke.html" target="_blank">Kedvencek rendezése</a> (számok, sorrend, mentés)</div>
     <div class="tools">🛠️ <a href="midi2lrc.html" target="_blank">MIDI → LRC átalakító</a> (új karaoke dal készítése)</div>
   </div>
 
@@ -234,6 +244,7 @@
 <script src="firebase-config.js?v=202611031110"></script>
 <script src="karaoke-songs.js?v=202611031110"></script>
 <script src="karaoke-core.js?v=202611031110"></script>
+<script src="karaoke-kedvencek.js?v=202611040900"></script>
 <script>
   firebase.initializeApp(firebaseConfig);
   const db = firebase.database();
@@ -306,16 +317,66 @@
     });
   }
 
+  // ---- Kedvencek (Firebase) — a lista tetején külön csoport, K szám szerint ----
+  let favs = [];                                   // [{key, k, url, title, artist, index}] K szerint
+  const favOf = i => favs.find(f => f.index === i);
+  const favGroup = document.createElement('optgroup');
+  favGroup.label = '⭐ Kedvencek';
+  songSelect.insertBefore(favGroup, songSelect.children[1] || null);
+  const FAV = watchFavorites(db, SONGS, list => {
+    favs = list;
+    favGroup.innerHTML = '';
+    for(const f of favs){
+      if(f.index < 0) continue;
+      const o = document.createElement('option');
+      o.value = f.index; o.textContent = `K${f.k} · ${fullTitle(SONGS[f.index])}`;
+      favGroup.appendChild(o);
+    }
+    favGroup.style.display = favGroup.children.length ? '' : 'none';
+    if(currentIndex >= 0) songSelect.value = currentIndex;
+    updateFavBtn(); updateNavHints();
+  });
+  function updateFavBtn(){
+    const b = $('favBtn');
+    if(currentIndex < 0){ b.style.display = 'none'; return; }
+    const f = favOf(currentIndex);
+    b.style.display = 'inline-block';
+    b.classList.toggle('on', !!f);
+    b.textContent = f ? `★ K${f.k}` : '☆ Kedvenc';
+  }
+  $('favBtn').addEventListener('click', () => {
+    if(currentIndex < 0) return;
+    const f = favOf(currentIndex);
+    if(f){ if(confirm(`Kiveszed a kedvencek közül? (K${f.k} · ${SONGS[currentIndex].title})`)) FAV.remove(f.key); }
+    else FAV.add(SONGS[currentIndex], FAV.nextFree(favs));   // a következő szabad K szám; átírni a rendező lapon lehet
+  });
+  // lapozás csak a kedvencek között (a beállítás ezen a gépen megmarad)
+  try{ $('favOnlyChk').checked = localStorage.getItem('karaokeFavOnly') === '1'; }catch(e){}
+  $('favOnlyChk').addEventListener('change', () => { try{ localStorage.setItem('karaokeFavOnly', $('favOnlyChk').checked ? '1' : '0'); }catch(e){} updateNavHints(); });
+  const favOnly = () => $('favOnlyChk').checked && favs.some(f => f.index >= 0);
+  function stepIndex(dir){                          // a következő / előző dal indexe (-1, ha nincs)
+    if(!favOnly()) { const i = currentIndex + dir; return i >= 0 && i < SONGS.length ? i : -1; }
+    const list = favs.filter(f => f.index >= 0);
+    const cur = favOf(currentIndex);
+    if(!cur) return dir > 0 ? list[0].index : list[list.length - 1].index;
+    const pos = list.indexOf(list.find(f => f.key === cur.key)) + dir;
+    return pos >= 0 && pos < list.length ? list[pos].index : -1;
+  }
+
   // ---- Állapot ----
   let currentIndex = -1;
   let state = null;          // ami a Firebase-ben van: { id, title, url, startedAt, pauseAt, pausedAt, minT }
                              //   (lásd karaokeTime() a karaoke-core.js-ben)
   let loadedUrl = null, loadedFull = false, loadedGap = 'none', loadToken = 0, chordList = [], songLength = null, autoStopped = false;
 
-  function songLabel(i){ return (i >= 0 && i < SONGS.length) ? `${SONGS[i].id}. ${fullTitle(SONGS[i])}` : '—'; }
+  function songLabel(i){
+    if(!(i >= 0 && i < SONGS.length)) return '—';
+    const f = favOnly() && favOf(i);
+    return (f ? `K${f.k}` : SONGS[i].id) + `. ${fullTitle(SONGS[i])}`;
+  }
   function updateNavHints(){
-    $('prevHint').textContent = songLabel(currentIndex > 0 ? currentIndex - 1 : -1);
-    $('nextHint').textContent = songLabel(currentIndex + 1);
+    $('prevHint').textContent = songLabel(stepIndex(-1));
+    $('nextHint').textContent = songLabel(stepIndex(+1));
   }
   updateNavHints();
 
@@ -421,7 +482,7 @@
     if(!state || !state.url){ view.clear(); $('status').textContent = 'Nincs kiválasztott dal'; updateButtons(); return; }
     currentIndex = SONGS.findIndex(s => s.url === state.url);
     if(currentIndex >= 0){ songSelect.value = currentIndex; updateCategory(SONGS[currentIndex]); }
-    updateNavHints();
+    updateNavHints(); updateFavBtn();
     $('status').innerHTML = (running() ? '▶ Most szól: ' : paused() ? '⏸ Szünet: ' : 'Kiválasztva: ') + '<b></b>';
     $('status').querySelector('b').textContent = state.title || '';
     $('fullChk').checked = !!state.full;
@@ -471,13 +532,21 @@
 
   // ---- Gombok ----
   songSelect.addEventListener('change', () => selectSong(parseInt(songSelect.value, 10)));
-  $('prevBtn').addEventListener('click', () => selectSong(Math.max(0, currentIndex - 1)));
-  $('nextBtn').addEventListener('click', () => selectSong(Math.min(SONGS.length - 1, currentIndex + 1)));
+  $('prevBtn').addEventListener('click', () => { const i = stepIndex(-1); if(i >= 0) selectSong(i); });
+  $('nextBtn').addEventListener('click', () => { const i = stepIndex(+1); if(i >= 0) selectSong(i); });
   $('selectNumBtn').addEventListener('click', () => {
-    const num = parseInt($('songNum').value, 10);
-    const idx = SONGS.findIndex(s => s.id === num);
-    if(idx === -1){ alert('Nincs ilyen számú karaoke dal.'); return; }
-    selectSong(idx);
+    const txt = $('songNum').value, k = parseK(txt);
+    let idx;
+    if(k !== null){                                   // K szám = kedvenc
+      const f = favs.find(x => x.k === k);
+      if(!f || f.index < 0){ alert(`Nincs K${k} számú kedvenc.`); return; }
+      idx = f.index;
+    } else {
+      const num = parseInt(txt, 10);
+      idx = SONGS.findIndex(s => s.id === num);
+      if(idx === -1){ alert('Nincs ilyen számú karaoke dal.'); return; }
+    }
+    selectSong(idx); $('songNum').value = '';
   });
   $('songNum').addEventListener('keydown', e => { if(e.key === 'Enter') $('selectNumBtn').click(); });
   $('startBtn').addEventListener('click', toggle);
@@ -510,7 +579,8 @@
       // minden beírt szó(részlet)nek szerepelnie kell (sorrend mindegy); előre a címben találtak
       hits = [];
       SONGS.forEach((s, i) => {
-        if(!words.every(w => info[i].includes(w))) return;
+        const f = favOf(i), fk = f ? ' k' + f.k : '';
+        if(!words.every(w => (info[i] + fk).includes(w) || (f && /^k\d+$/.test(w) && w === 'k' + f.k))) return;
         const t = norm(s.title), score = t.startsWith(q) ? 0 : words.every(w => t.includes(w)) ? 1 : 2;
         hits.push({ i, score });
       });
@@ -519,7 +589,8 @@
       sel = hits.length ? 0 : -1;
       box.innerHTML = hits.length ? hits.map((h, k) => {
         const s = SONGS[h.i];
-        return `<div class="sr${k === sel ? ' sel' : ''}" data-k="${k}"><span class="num">${hilite(String(s.id), words)}.</span><b>${hilite(s.title, words)}</b>` +
+        const f = favOf(h.i);
+        return `<div class="sr${k === sel ? ' sel' : ''}" data-k="${k}">${f ? `<span class="fk">★ K${f.k}</span>` : ''}<span class="num">${hilite(String(s.id), words)}.</span><b>${hilite(s.title, words)}</b>` +
           (s.artist && !s.title.includes(s.artist) ? ` <span class="ar">– ${hilite(s.artist, words)}</span>` : '') +
           // melyik mappában van (minden szint), hogy két azonos nevű dal megkülönböztethető legyen
           `<span class="path">📁 ${folderPath(s).map(p => hilite((p.num ? p.num + ' ' : '') + p.name, words)).join(' › ')}</span></div>`;

@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kedvencek rendezése</title>
+<style>
+  :root{ --bg:#111827; --panel:#1f2937; --accent:#22c55e; --text:#f9fafb; --muted:#9ca3af; --yellow:#facc15; }
+  *{box-sizing:border-box;}
+  body{margin:0; font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif; background:var(--bg); color:var(--text);
+    display:flex; justify-content:center; padding:20px;}
+  .card{background:var(--panel); border-radius:16px; padding:24px; width:100%; max-width:820px; box-shadow:0 10px 30px rgba(0,0,0,.4);}
+  @media (max-width:600px){ body{padding:6px;} .card{padding:12px;} }
+  h1{font-size:1.4rem; margin:0 0 4px;}
+  p.sub{color:var(--muted); margin:0 0 18px; font-size:.9rem;}
+  h2{font-size:1rem; margin:22px 0 8px; color:#e5e7eb;}
+  button{cursor:pointer; border:none; border-radius:8px; padding:8px 12px; font-size:.95rem; font-weight:600;
+    background:#374151; color:var(--text);}
+  button:hover{background:#4b5563;}
+  button.primary{background:var(--accent); color:#052e16;}
+  button.primary:hover{background:#16a34a;}
+  button.small{padding:5px 9px; font-size:.85rem;}
+  button:disabled{opacity:.35; cursor:default;}
+  input[type=text]{width:100%; padding:10px 12px; border-radius:8px; border:1px solid #374151; background:#111827; color:var(--text); font-size:1rem;}
+  input[type=text]:focus{outline:none; border-color:var(--accent);}
+  .muted{color:var(--muted); font-size:.85rem;}
+  .path{display:block; color:#6b7280; font-size:.78rem; margin-top:2px;}
+  mark{background:none; color:var(--yellow); font-weight:700;}
+
+  /* hozzáadás */
+  #res{margin-top:6px; max-height:45vh; overflow-y:auto; border-radius:8px;}
+  .r{display:flex; align-items:center; gap:10px; padding:8px 10px; border-bottom:1px solid #111827; background:#0b1220;}
+  .r .t{flex:1; min-width:0;}
+  .r .num{color:var(--muted); font-size:.85rem; margin-right:6px;}
+  .r .fk{color:var(--yellow); font-weight:700;}
+
+  /* kedvencek */
+  #list{margin-top:6px;}
+  .f{display:flex; align-items:center; gap:8px; padding:8px 10px; border-bottom:1px solid #111827; background:#0b1220;}
+  .f:first-child{border-radius:8px 8px 0 0;} .f:last-child{border-radius:0 0 8px 8px;}
+  .f.missing{opacity:.6;}
+  .f .k{display:flex; align-items:center; color:var(--yellow); font-weight:700;}
+  .f .k input{width:4.2em; padding:6px; border-radius:6px; border:1px solid #374151; background:#111827; color:var(--yellow);
+    font-weight:700; font-size:1rem; text-align:center;}
+  .f .t{flex:1; min-width:0;}
+  .f .t b{font-weight:600;}
+  .bar{display:flex; flex-wrap:wrap; gap:8px; margin-top:12px;}
+  #empty{color:var(--muted); padding:12px 0;}
+  a{color:#60a5fa;}
+</style>
+</head>
+<body>
+<div class="card">
+  <h1>⭐ Kedvencek rendezése</h1>
+  <p class="sub">Itt lehet a kedvenc karaoke dalokat felvenni, a K számukat átírni, sorba rakni és elmenteni.
+    A változás azonnal megjelenik a vezérlőn és a nézők listáján is. A vezérlő: <a href="ControllerKaraoke.html">Karaoke vezérlő</a></p>
+
+  <h2>Dal hozzáadása</h2>
+  <input type="text" id="q" placeholder="🔍 Keresés: címrészlet, előadó, szám vagy mappa…" autocomplete="off">
+  <div id="res"></div>
+
+  <h2>Kedvencek (<span id="cnt">0</span>)</h2>
+  <div class="muted">A K szám átírható: írj be egy új számot, és nyomj Entert. Ha a szám foglalt, a két dal helyet cserél.
+    A ▲ ▼ gombokkal az előtte / utána lévővel cserél helyet.</div>
+  <div id="list"></div>
+  <div id="empty">Még nincs kedvenc. Fent keress rá egy dalra, és add hozzá — vagy a vezérlőn nyomd meg a ☆ gombot.</div>
+
+  <div class="bar">
+    <button id="renumBtn">🔢 Számok rendbetétele (K1, K2, K3 … hézag nélkül)</button>
+    <button id="saveBtn">💾 Mentés fájlba</button>
+    <button id="loadBtn">📂 Visszatöltés fájlból</button>
+    <input type="file" id="loadFile" accept=".json,application/json" hidden>
+  </div>
+  <p class="muted" style="margin-top:10px;">Tipp: időnként mentsd el a listát fájlba — ha valami elromlana, abból visszatölthető.</p>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<script src="firebase-config.js?v=202611031110"></script>
+<script src="karaoke-songs.js?v=202611040900"></script>
+<script src="karaoke-kedvencek.js?v=202611040900"></script>
+<script>
+  firebase.initializeApp(firebaseConfig);
+  const db = firebase.database();
+  const SONGS = KARAOKE_SONGS;
+  const $ = id => document.getElementById(id);
+  const esc = x => String(x).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const fullTitle = s => s.artist && !s.title.includes(s.artist) ? `${s.title} – ${s.artist}` : s.title;
+  const folderOf = s => s.url.split('/').slice(1, -1).map(p => p.replace(/^(\d+)-/, '$1 ')).join(' › ');
+
+  let favs = [];
+  const FAV = watchFavorites(db, SONGS, list => { favs = list; renderList(); search(); });
+  const favOfIndex = i => favs.find(f => f.index === i);
+
+  // ---- lista ----
+  function renderList(){
+    $('cnt').textContent = favs.length;
+    $('empty').style.display = favs.length ? 'none' : 'block';
+    const box = $('list'); box.innerHTML = '';
+    favs.forEach((f, pos) => {
+      const s = f.index >= 0 ? SONGS[f.index] : null;
+      const d = document.createElement('div'); d.className = 'f' + (s ? '' : ' missing');
+      d.innerHTML = `<span class="k">K<input type="text" inputmode="numeric" value="${f.k}"></span>
+        <span class="t"><b>${esc(s ? s.title : f.title)}</b>${(s ? s.artist : f.artist) ? ' <span class="muted">– ' + esc(s ? s.artist : f.artist) + '</span>' : ''}
+          <span class="path">${s ? '📁 ' + esc(folderOf(s)) + ' · ' + s.id + '.' : '⚠ a dal fájlja nem található (áthelyezték?)'}</span></span>
+        <button class="small up" title="Előre">▲</button><button class="small down" title="Hátra">▼</button>
+        <button class="small del" title="Kivesz">🗑</button>`;
+      const inp = d.querySelector('input');
+      const commit = () => setNumber(f, inp.value);
+      inp.addEventListener('keydown', e => { if(e.key === 'Enter'){ e.preventDefault(); inp.blur(); } });
+      inp.addEventListener('change', commit);
+      d.querySelector('.up').disabled = pos === 0;
+      d.querySelector('.down').disabled = pos === favs.length - 1;
+      d.querySelector('.up').addEventListener('click', () => swap(f, favs[pos - 1]));
+      d.querySelector('.down').addEventListener('click', () => swap(f, favs[pos + 1]));
+      d.querySelector('.del').addEventListener('click', () => {
+        if(confirm(`Kiveszed a kedvencek közül? (K${f.k} · ${s ? s.title : f.title})`)) FAV.remove(f.key);
+      });
+      box.appendChild(d);
+    });
+  }
+  function swap(a, b){ if(!a || !b) return; const ka = a.k, kb = b.k; FAV.setK(a.key, kb); FAV.setK(b.key, ka); }
+  function setNumber(f, txt){
+    const k = parseInt(String(txt).replace(/^\s*k/i, ''), 10);
+    if(!(k > 0)){ alert('A K szám egy pozitív egész szám legyen (pl. 12).'); renderList(); return; }
+    if(k === f.k) return;
+    const other = favs.find(x => x.k === k);
+    if(other){
+      if(!confirm(`A K${k} már foglalt: ${other.title}. Cseréljenek helyet? (az a dal K${f.k} lesz)`)){ renderList(); return; }
+      FAV.setK(other.key, f.k);
+    }
+    FAV.setK(f.key, k);
+  }
+  $('renumBtn').addEventListener('click', () => {
+    if(!favs.length) return;
+    if(!confirm('A kedvencek a mostani sorrendjükben K1-től kezdve hézag nélkül újraszámozódnak. Mehet?')) return;
+    favs.forEach((f, i) => { if(f.k !== i + 1) FAV.setK(f.key, i + 1); });
+  });
+
+  // ---- hozzáadás: kereső ----
+  const norm = x => (x || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, ' ').trim();
+  const info = SONGS.map(s => norm([s.id, s.title, s.artist, folderOf(s)].join(' ')));
+  function hilite(text, words){
+    const chars = [...text], map = [], nc = [];
+    chars.forEach((c, i) => { const n = norm(c) || ' '; for(const x of n){ nc.push(x); map.push(i); } });
+    const ns = nc.join(''), on = new Array(chars.length).fill(false);
+    for(const w of words){ let p = -1; while((p = ns.indexOf(w, p + 1)) >= 0) for(let j = p; j < p + w.length; j++) on[map[j]] = true; }
+    let out = '', open = false;
+    chars.forEach((c, i) => { if(on[i] && !open){ out += '<mark>'; open = true; } if(!on[i] && open){ out += '</mark>'; open = false; } out += esc(c); });
+    return out + (open ? '</mark>' : '');
+  }
+  function search(){
+    const words = norm($('q').value).split(' ').filter(Boolean), box = $('res');
+    if(!words.length){ box.innerHTML = ''; return; }
+    const hits = []; SONGS.forEach((s, i) => { if(words.every(w => info[i].includes(w))) hits.push(i); });
+    const next = FAV.nextFree(favs);
+    box.innerHTML = hits.slice(0, 50).map(i => {
+      const s = SONGS[i], f = favOfIndex(i);
+      return `<div class="r"><span class="t"><span class="num">${s.id}.</span><b>${hilite(s.title, words)}</b>` +
+        (s.artist && !s.title.includes(s.artist) ? ` <span class="muted">– ${hilite(s.artist, words)}</span>` : '') +
+        `<span class="path">📁 ${hilite(folderOf(s), words)}</span></span>` +
+        (f ? `<span class="fk">★ K${f.k}</span>` : `<button class="small primary" data-i="${i}">+ K${next}</button>`) + '</div>';
+    }).join('') + (hits.length > 50 ? `<div class="r muted">… és még ${hits.length - 50} találat — írj be többet</div>` : '') +
+      (hits.length ? '' : '<div class="r muted">Nincs találat.</div>');
+  }
+  $('q').addEventListener('input', search);
+  $('res').addEventListener('click', e => {
+    const b = e.target.closest('button[data-i]'); if(!b) return;
+    FAV.add(SONGS[+b.dataset.i], FAV.nextFree(favs));
+  });
+
+  // ---- mentés / visszatöltés ----
+  $('saveBtn').addEventListener('click', () => {
+    const data = { mentve: new Date().toISOString(), kedvencek: favs.map(f => ({ k: f.k, url: f.url, title: f.title, artist: f.artist })) };
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }));
+    a.download = 'karaoke-kedvencek-' + new Date().toISOString().slice(0, 10) + '.json';
+    a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+  });
+  $('loadBtn').addEventListener('click', () => $('loadFile').click());
+  $('loadFile').addEventListener('change', async e => {
+    const file = e.target.files[0]; e.target.value = ''; if(!file) return;
+    try{
+      const data = JSON.parse(await file.text()), list = data.kedvencek || [];
+      if(!Array.isArray(list) || !list.length) throw 'üres';
+      if(!confirm(`A fájlban ${list.length} kedvenc van (mentve: ${(data.mentve || '?').slice(0, 10)}). A mostani lista helyére kerülnek. Mehet?`)) return;
+      await FAV.replaceAll(list);
+    }catch(err){ alert('Ez nem egy kedvenc-mentés fájl.'); }
+  });
+</script>
+</body>
+</html>
