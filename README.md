@@ -119,3 +119,12 @@ a nézők kijelzőjén **nem** jelennek meg.
   (maj7, m7, sus4, basszushang…) vedd ki az „egyszerű akkordok” jelölőt a fájlok behúzása előtt.
   A becsült akkord nem mindig tökéletes — a fájl szövegszerkesztővel javítható, soronként
   `[perc:mp.század]Akkord`, pl. `[00:25.40]Dm`.
+- **Magyar jelölés:** a vezérlő mindig magyar akkordneveket mutat (H = angol B, B = angol Bb).
+  A fájlokban angol jelölés marad, ezt nem kell átírni.
+- **Hangnem (transzponálás):** a vezérlő „Hangnem” sorában a **− lejjebb / + feljebb** gombok
+  fél hanggal tolják el az akkordokat, a **C** gomb C-dúrba (moll dalnál a-mollba) teszi, a **↺**
+  visszaállítja az eredetit. A szöveg és az időzítés nem változik. A beállítás dalonként megmarad
+  (a Firebase-ben, minden vezérlőn ugyanaz). Az „Akkordok magától C-dúrba” jelölővel (alapból be)
+  minden dal magától C-dúrban / a-mollban jön fel, amelyiknél nincs külön beállítás.
+  Az eredeti hangnemet a vezérlő az akkordokból becsüli — ha egy dal hangnemet vált, vagy rosszul
+  találja el, a −/+ gombokkal kézzel állítható.

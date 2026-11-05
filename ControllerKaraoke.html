@@ -132,7 +132,8 @@
   .tempoRow{display:flex; gap:8px; align-items:center; margin-top:10px;}
   .tempoRow .tlabel{color:var(--muted); font-size:.9rem; flex:0 0 auto;}
   .tempoRow button{flex:1; padding:10px;}
-  .tempoRow #tempoReset{flex:0 0 auto;}
+  .tempoRow #tempoReset, .tempoRow #keyC, .tempoRow #keyReset{flex:0 0 auto;}
+  #keyVal{flex:1.2; text-align:center; font-weight:700; font-size:1.05rem;}
   #tempoVal{flex:1.2; text-align:center; font-weight:700; font-size:1.05rem; font-variant-numeric:tabular-nums;}
   .hint{margin-top:10px; font-size:.8rem; color:var(--muted); line-height:1.5;}
   .hint kbd{background:#374151; border-radius:4px; padding:1px 5px; font-family:inherit; color:#e5e7eb;}
@@ -209,6 +210,15 @@
       <button id="tempoReset" disabled title="vissza az eredeti tempóra">↺</button>
     </div>
 
+    <div class="tempoRow">
+      <span class="tlabel">Hangnem</span>
+      <button id="keyDown" disabled title="akkordok fél hanggal lejjebb">− lejjebb</button>
+      <span id="keyVal">—</span>
+      <button id="keyUp" disabled title="akkordok fél hanggal feljebb">+ feljebb</button>
+      <button id="keyC" disabled title="C-dúrba (moll dalnál a-mollba)">C</button>
+      <button id="keyReset" disabled title="vissza az eredeti hangnemre">↺</button>
+    </div>
+
     <div class="status"><span id="status">Nincs kiválasztott dal</span><span id="clock"></span></div>
 
     <div id="previewBox"><div id="kv"></div><div id="previewMsg"></div></div>
@@ -228,6 +238,7 @@
         <option value="short">Rövid (1 ütem, visszaszámlálás nélkül)</option>
         <option value="chords">2 ütem, akkordokkal + visszaszámlálás</option>
       </select></label>
+    <label class="opt"><input type="checkbox" id="autoCChk"> Akkordok magától C-dúrba (moll dal: a-mollba) — ha a dalnál nincs külön beállítva</label>
     <label class="opt"><input type="checkbox" id="fullChk"> Zenei részek akkordjai is (ének nélkül)</label>
     <label class="opt"><input type="checkbox" id="favOnlyChk" checked> ⭐ Lapozás csak a kedvencek között (K1, K2, … sorrendben)</label>
 
@@ -255,6 +266,7 @@
 <script src="karaoke-songs.js?v=202611041125"></script>
 <script src="karaoke-core.js?v=202611031110"></script>
 <script src="karaoke-kedvencek.js?v=202611041110"></script>
+<script src="karaoke-hangnem.js?v=202611060200"></script>
 <script>
   firebase.initializeApp(firebaseConfig);
   const db = firebase.database();
@@ -485,6 +497,49 @@
   $('tempoUp').addEventListener('click', () => tempoStep(+1));
   $('tempoReset').addEventListener('click', () => setRate(1));
 
+  // ---- Hangnem (akkordok transzponálása, magyar jelöléssel) ----
+  //  Csak a vezérlőn látszó akkordokat érinti; a szöveg és az időzítés nem változik.
+  //  A beállítás a Firebase-ben van ('karaokeHangnem'), így minden vezérlőn ugyanaz:
+  //    auto: új dal magától C-dúrba / a-mollba (alapból be)
+  //    dal/<fájl>: az adott dalhoz kézzel beállított eltolás (félhang, 0 = eredeti)
+  //  Ha a Firebase nem engedi, ezen az eszközön akkor is megmarad (böngésző tároló).
+  let songKey = null;
+  const hnRef = db.ref('karaokeHangnem');
+  let hnData = (() => { try { return JSON.parse(localStorage.getItem('karaokeHangnem')) || {}; } catch(e){ return {}; } })();
+  const hnAuto = () => hnData.auto !== false;
+  const hnSongKey = () => state && state.url ? favKeyOf({ url: state.url }) : null;
+  function hnSaveLocal(){ try { localStorage.setItem('karaokeHangnem', JSON.stringify(hnData)); } catch(e){} }
+  function curShift(){
+    const k = hnSongKey(), d = hnData.dal || {};
+    if(k && typeof d[k] === 'number') return d[k];
+    return hnAuto() ? hnShiftToC(songKey) : 0;
+  }
+  function applyKey(){
+    const has = chordList.length > 0 && !!songKey, s = has ? curShift() : 0, tgt = hnShiftKey(songKey, s);
+    view.setChords(chordList.map(c => ({ t: c.t, c: hnChord(c.c, s, tgt) })));
+    ['keyDown', 'keyUp', 'keyC', 'keyReset'].forEach(id => $(id).disabled = !has);
+    $('keyVal').textContent = !has ? (state && state.url && loadedUrl === state.url ? 'nincs akkord' : '—')
+      : hnKeyName(tgt) + (s ? ' (eredeti: ' + hnKeyName(songKey) + ')' : ' (eredeti)');
+    $('keyVal').style.color = s ? 'var(--yellow)' : '';
+    $('autoCChk').checked = hnAuto();
+  }
+  function setSongShift(v){
+    const k = hnSongKey(); if(!k || !songKey) return;
+    v = hnNorm(v);
+    hnData.dal = Object.assign({}, hnData.dal, { [k]: v }); hnSaveLocal(); applyKey();
+    hnRef.child('dal/' + k).set(v).catch(e => console.warn('Hangnem: Firebase írás nem sikerült', e));
+  }
+  hnRef.on('value', snap => { const v = snap.val(); if(v){ hnData = v; hnSaveLocal(); } applyKey(); },
+           e => console.warn('Hangnem: Firebase olvasás nem sikerült', e));
+  $('keyDown').addEventListener('click', () => setSongShift(curShift() - 1));
+  $('keyUp').addEventListener('click', () => setSongShift(curShift() + 1));
+  $('keyC').addEventListener('click', () => setSongShift(hnShiftToC(songKey)));
+  $('keyReset').addEventListener('click', () => setSongShift(0));
+  $('autoCChk').addEventListener('change', () => {
+    hnData.auto = $('autoCChk').checked; hnSaveLocal(); applyKey();
+    hnRef.child('auto').set(hnData.auto).catch(e => console.warn('Hangnem: Firebase írás nem sikerült', e));
+  });
+
   function updateButtons(){
     const ready = !!(state && state.url && loadedUrl === state.url);
     $('startBtn').disabled = !ready;
@@ -510,12 +565,14 @@
     if(state.url !== loadedUrl || !!state.full !== loadedFull || (state.gap || 'none') !== loadedGap){
       const my = ++loadToken, url = state.url, full = !!state.full, gap = state.gap || 'none';
       loadedUrl = null; loadedFull = full; loadedGap = gap; view.clear(); chordList = []; lrcMeta = {}; $('previewMsg').textContent = 'Betöltés…';
+      songKey = null; applyKey();
       Promise.all([fetchLrc(url), fetchChords(url)]).then(([lrc, ch]) => {
         if(my !== loadToken) return;
+        songKey = hnDetectKey(ch, lrc.length);                       // a dal eredeti hangneme (becslés)
         if(!full) ({ lrc, chords: ch } = compressKaraoke(lrc, ch, gap));   // szöveg nélküli részek lerövidítve
         $('previewMsg').textContent = lrc.lines.length ? '' : 'A dalszöveg üres.';
-        chordList = ch; view.setChords(ch); songLength = lrc.length; lrcMeta = lrc.meta || {};
-        view.load(lrc); loadedUrl = url; updateButtons();
+        chordList = ch; songLength = lrc.length; lrcMeta = lrc.meta || {};
+        view.load(lrc); loadedUrl = url; applyKey(); updateButtons();
       }).catch(e => {
         if(my !== loadToken) return;
         $('previewMsg').textContent = 'Az LRC fájlt nem sikerült betölteni: ' + url;
