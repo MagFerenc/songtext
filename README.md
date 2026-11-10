@@ -99,6 +99,8 @@ A vezérlő lenyílójában a mappák fastruktúraként látszanak, a „Dal sz�
    gombokkal (vagy a + / − billentyűkkel) ugyanannyi BPM-mel kell állítani; **↺** = vissza az eredetire.
    Az eredeti tempót (BPM) a MIDI → LRC átalakító írja bele az LRC-be; ha egy régi fájlban
    nincs benne, a gombok %-ban lépnek.
+   A beállított tempó **dalonként magától elmentődik** (a Firebase-ben, minden vezérlőn ugyanaz):
+   a dal legközelebb már ezzel a tempóval jön fel. A **↺** visszaállítja az eredetit és törli a mentést.
    A tempó mellett egy **metronóm-LED** villog ütemre (az ütem első ütése piros) — a dal
    eredeti tempójából és ütemmutatójából ([tempo:], [meter:] az LRC-ben) számol.
 

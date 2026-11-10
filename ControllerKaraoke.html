@@ -412,10 +412,26 @@
   }
   updateNavHints();
 
+  // ---- Mentett tempó dalonként ----
+  //  Ha egy dalnál átállítják a tempót, magától elmentődik ('karaokeTempo' a Firebase-ben, minden
+  //  vezérlőn ugyanaz); a dal legközelebb már ezzel jön fel. A ↺ visszaállítja az eredetit és törli.
+  //  Ha a Firebase nem engedi, ezen az eszközön akkor is megmarad (böngésző tároló).
+  const tRef = db.ref('karaokeTempo');
+  let tData = (() => { try { return JSON.parse(localStorage.getItem('karaokeTempo')) || {}; } catch(e){ return {}; } })();
+  function tSaveLocal(){ try { localStorage.setItem('karaokeTempo', JSON.stringify(tData)); } catch(e){} }
+  tRef.on('value', snap => { tData = snap.val() || {}; tSaveLocal(); }, e => console.warn('Tempó: Firebase olvasás nem sikerült', e));
+  function savedRate(url){ const r = tData[favKeyOf({ url })]; return typeof r === 'number' && r > 0 ? r : null; }
+  function saveRate(url, r){
+    const k = favKeyOf({ url }), keep = Math.abs(r - 1) > 1e-4;
+    if(keep) tData[k] = r; else delete tData[k];
+    tSaveLocal();
+    (keep ? tRef.child(k).set(r) : tRef.child(k).remove()).catch(e => console.warn('Tempó: Firebase írás nem sikerült', e));
+  }
+
   function selectSong(index){
     if(index < 0 || index >= SONGS.length) return;
     const song = SONGS[index];
-    kRef.set({ index, id: song.id, title: fullTitle(song), url: song.url, startedAt: null, updatedAt: SV.TIMESTAMP, full: (state && state.full) || null, gap: (state && state.gap) || null });
+    kRef.set({ index, id: song.id, title: fullTitle(song), url: song.url, startedAt: null, updatedAt: SV.TIMESTAMP, full: (state && state.full) || null, gap: (state && state.gap) || null, rate: savedRate(song.url) });
   }
 
   const D = KARAOKE_SYNC_DELAY;
@@ -474,6 +490,7 @@
   function setRate(r){
     if(!state || !state.url) return;
     r = Math.min(1.5, Math.max(0.5, Math.round(r * 10000) / 10000));
+    saveRate(state.url, r);                                   // dalonként magától elmentődik
     if(running()){
       // a pozíció ne ugorjon: az indulási időt átszámoljuk az új tempóhoz
       const now = serverNow(), p = karaokeTime(state, now);
