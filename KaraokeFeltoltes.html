@@ -1,0 +1,369 @@
+<!DOCTYPE html><html lang="hu"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Karaoke dal feltöltése</title><style>
+body{margin:0;font-family:system-ui,sans-serif;background:#111;color:#ddd;padding:20px;max-width:1200px}
+h1{font-size:24px;margin:0 0 6px}h2{font-size:18px;margin:26px 0 8px;color:#ffcc00}
+p,.hint{color:#999;margin:0 0 10px;font-size:14px}
+a{color:#7cf}
+.box{background:#1a1a1a;border:1px solid #333;border-radius:10px;padding:14px 16px}
+input[type=text],input[type=password],input[type=number],select{background:#222;color:#fff;border:1px solid #444;border-radius:5px;padding:6px 8px;font-size:15px}
+input[type=number]{width:100px}
+button{font-size:15px;padding:8px 16px;border:0;border-radius:6px;background:#ffcc00;color:#111;cursor:pointer}
+button.sec{background:#333;color:#ddd}button:disabled{opacity:.4;cursor:default}
+#drop{border:3px dashed #555;border-radius:12px;padding:34px;text-align:center;color:#aaa;cursor:pointer}
+#drop.hov{border-color:#ffcc00;color:#ffcc00}
+table{width:100%;border-collapse:collapse;margin-top:12px}
+td,th{padding:7px;border-bottom:1px solid #333;text-align:left;vertical-align:top;font-size:14px}
+td input[type=text]{width:100%;box-sizing:border-box}
+.ok{color:#5c5}.no{color:#e55}.warn{color:#fb4}
+.small{font-size:12px;color:#999;word-break:break-all}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+#folder{max-width:100%;min-width:320px}
+#log{white-space:pre-wrap;font-size:14px;margin-top:12px}
+details summary{cursor:pointer;color:#ffcc00}
+details ol{color:#bbb;font-size:14px;line-height:1.6}
+code{background:#222;padding:1px 5px;border-radius:4px}
+.hidden{display:none!important}
+</style></head><body>
+<h1>🎤 Karaoke dal feltöltése</h1>
+<p>Húzd be a karaoke-MIDI fájl(oka)t, válaszd ki a mappát — a lap elkészíti a szöveget (LRC) és az akkordokat,
+számot ad, beírja a <code>karaoke-songs.js</code>-be, és mindent egyben feltölt a GitHubra. Pár perc múlva ott van a karaoke vezérlőben.</p>
+
+<h2>1. Belépés a GitHubra</h2>
+<div class="box" id="loginBox">
+  <div class="row">
+    <input type="password" id="tok" placeholder="GitHub kulcs (token)" style="flex:1;min-width:260px" autocomplete="off">
+    <label class="small" style="font-size:14px;color:#ccc"><input type="checkbox" id="remember" checked> megjegyzés ezen a gépen</label>
+    <button id="loginBtn">Belépés</button>
+  </div>
+  <div id="loginMsg" class="hint" style="margin-top:8px"></div>
+  <details style="margin-top:6px"><summary>Honnan van kulcs? (csak egyszer kell)</summary>
+    <p style="margin-top:8px">A GitHub jelszóval nem enged feltölteni, ehhez egy „kulcs” (token) kell. Ezt egyszer kell elkészíteni, utána ez a gép megjegyzi.</p>
+    <ol>
+      <li>Jelentkezz be a GitHubra azzal a fiókkal, amelyiké a <b>songtext</b> repó, és nyisd meg:
+        <a href="https://github.com/settings/personal-access-tokens/new" target="_blank">github.com/settings/personal-access-tokens/new</a></li>
+      <li><b>Token name:</b> pl. <code>karaoke feltöltés</code> · <b>Expiration:</b> amilyen hosszút enged (pl. 1 év).</li>
+      <li><b>Repository access:</b> „Only select repositories” → <b>songtext</b>.</li>
+      <li><b>Permissions → Repository permissions → Contents:</b> <b>Read and write</b>.</li>
+      <li>Lent <b>Generate token</b>, majd a megjelenő hosszú kódot (<code>github_pat_…</code>) másold be ide fent.</li>
+    </ol>
+    <p>Ha nem a repó tulajdonosa, csak közreműködő (collaborator) készíti a kulcsot, akkor a „classic” fajta kell:
+      <a href="https://github.com/settings/tokens/new?scopes=public_repo&description=karaoke%20feltoltes" target="_blank">ide kattintva</a>
+      (a <code>public_repo</code> jog már be van jelölve) → Generate token.</p>
+    <p>Ha a kulcs lejár vagy elveszik, csak készíts újat ugyanígy. A kulcs csak ezen a gépen, ebben a böngészőben van elmentve.</p>
+  </details>
+</div>
+
+<div id="main" class="hidden">
+<h2>2. Hova kerüljön?</h2>
+<div class="box">
+  <div class="row">
+    <label>Mappa: <select id="folder"></select></label>
+  </div>
+  <div class="row" style="margin-top:10px">
+    <label>Új almappa a kiválasztott alatt (nem kötelező): <input type="text" id="newSub" placeholder="pl. Mulatós 2026" style="width:240px"></label>
+  </div>
+  <p id="folderInfo" style="margin-top:10px"></p>
+</div>
+
+<h2>3. MIDI fájlok</h2>
+<div id="drop">Húzd ide a karaoke-MIDI / KAR fájlokat (vagy kész .lrc + .akkord.lrc fájlokat), vagy kattints a tallózáshoz
+  <input id="f" type="file" accept=".mid,.midi,.kar,.lrc" multiple hidden></div>
+<table id="t" class="hidden"><thead><tr><th>MIDI fájl</th><th style="width:22%">Cím</th><th style="width:18%">Előadó</th><th>Szám</th><th style="width:30%">Fájl a GitHubon</th><th></th></tr></thead><tbody></tbody></table>
+
+<h2>4. Feltöltés</h2>
+<div class="row">
+  <button id="upBtn" disabled>⬆ Feltöltés a GitHubra</button>
+  <button class="sec" id="clrBtn">Lista törlése</button>
+  <button class="sec" id="logoutBtn" style="margin-left:auto">Kilépés (kulcs törlése erről a gépről)</button>
+</div>
+<div id="log"></div>
+</div>
+
+<script src="midi2lrc-core.js?v=1"></script>
+<script>
+// ============================================================
+// Beállítások — a repó neve a lap címéből jön (magferenc.github.io/songtext → MagFerenc/songtext)
+// ============================================================
+let OWNER='MagFerenc',REPO='songtext',BRANCH='main';
+if(/\.github\.io$/i.test(location.hostname)){const seg=location.pathname.split('/').filter(Boolean);
+  if(seg.length>1||!/\.html$/i.test(seg[0]||''))REPO=seg[0];}
+const LIST='karaoke-songs.js';
+const CACHE_BUST_FILES=['ControllerKaraoke.html','KedvencekKaraoke.html']; // ezekben frissül a ?v= szám, hogy azonnal látszódjon
+
+const $=id=>document.getElementById(id);
+const norm=x=>(x||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]+/g,' ').trim();
+const slug=x=>(x||'').normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[őŐ]/g,'o').replace(/[űŰ]/g,'u')
+  .replace(/[^A-Za-z0-9]+/g,'-').replace(/^-+|-+$/g,'')||'dal';
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+// ---------- GitHub API ----------
+let TOKEN='';
+async function gh(path,opt={}){
+  const r=await fetch('https://api.github.com'+path,{...opt,headers:{'Authorization':'Bearer '+TOKEN,'Accept':opt.accept||'application/vnd.github+json',
+    'X-GitHub-Api-Version':'2022-11-28',...(opt.body?{'Content-Type':'application/json'}:{})}});
+  if(!r.ok){const t=await r.text();const e=new Error('GitHub '+r.status+': '+t.slice(0,200));e.status=r.status;throw e;}
+  return opt.accept==='application/vnd.github.raw+json'?r.text():r.json();
+}
+const encPath=p=>p.split('/').map(encodeURIComponent).join('/');
+const getRaw=(path,ref)=>gh(`/repos/${OWNER}/${REPO}/contents/${encPath(path)}?ref=${encodeURIComponent(ref)}`,{accept:'application/vnd.github.raw+json'});
+const evalList=(txt,name)=>new Function(txt+'\n;return '+name+';')();
+
+// ---------- állapot ----------
+let KS=[],SONGS=[],CATS=[],listText='';
+const rows=[]; // {file, r(convert), title, artist, id, pdfId, stem, el...}
+
+// ---------- belépés ----------
+async function login(tok){
+  TOKEN=tok.trim();$('loginMsg').textContent='Ellenőrzés…';
+  try{
+    const repo=await gh(`/repos/${OWNER}/${REPO}`);
+    if(!repo.permissions||!repo.permissions.push)throw new Error('Ezzel a kulccsal nincs írási jog a '+OWNER+'/'+REPO+' repóhoz.');
+    BRANCH=repo.default_branch||'main';
+    if($('remember').checked)try{localStorage.setItem('ghToken',TOKEN)}catch(e){}
+    await loadLists();
+    $('loginMsg').innerHTML='<span class="ok">✔ Belépve</span> — '+esc(OWNER+'/'+REPO)+' · '+KS.length+' karaoke dal a listában';
+    $('tok').value='';$('main').classList.remove('hidden');
+  }catch(e){
+    $('loginMsg').innerHTML='<span class="no">✘ '+esc(e.status===401?'Hibás vagy lejárt kulcs.':e.message)+'</span>';
+    if(e.status===401)try{localStorage.removeItem('ghToken')}catch(_){}
+  }
+}
+async function loadLists(){
+  const [k,s,c]=await Promise.all([getRaw(LIST,BRANCH),getRaw('songs.js',BRANCH).catch(()=>''),getRaw('categories.js',BRANCH).catch(()=>'')]);
+  listText=k;KS=evalList(k,'KARAOKE_SONGS');
+  try{SONGS=s?evalList(s,'SONGS'):[]}catch(e){SONGS=[]}
+  try{CATS=c?evalList(c,'CATEGORIES'):[]}catch(e){CATS=[]}
+  buildFolders();
+}
+
+// ---------- mappák ----------
+function buildFolders(){
+  const cnt={};
+  const add=(d,n)=>{const p=d.split('/');for(let i=1;i<=p.length;i++){const k=p.slice(0,i).join('/');cnt[k]=(cnt[k]||0)+(i===p.length?n:0);}};
+  for(const s of KS){const m=/^Karaoke\/(.+)\/[^\/]+$/.exec(s.url||'');if(m)add(m[1],1);}
+  for(const s of SONGS){const m=/^Dalok\/(\d+-[^\/]+)\//.exec(s.url||'');if(m)add(m[1],0);} // PDF mappák, ha még nincs karaoke bennük
+  const keys=Object.keys(cnt).sort((a,b)=>a.localeCompare(b,'hu',{numeric:true}));
+  const sel=$('folder'),prev=sel.value||localStorage.getItem('karaokeFolder')||'';
+  sel.innerHTML='';
+  for(const k of keys){const d=k.split('/').length-1,o=document.createElement('option');o.value=k;
+    o.textContent='   '.repeat(d)+(d?'└ ':'📁 ')+k.split('/').pop()+(cnt[k]?'  ('+cnt[k]+')':'');sel.appendChild(o);}
+  if(keys.includes(prev))sel.value=prev;
+  folderChanged();
+}
+const safeSeg=x=>x.replace(/[\\\/:*?"<>|#%]/g,'').replace(/\s+/g,' ').trim();
+function curFolder(){const sub=safeSeg($('newSub').value||'');return $('folder').value+(sub?'/'+sub:'');}
+// PDF-es mappa (pl. 400-mulatos): a dalok a PDF számát kapják. Máshol (pl. 950-Osszes) 6 jegyű szám.
+function pdfInfo(folder){
+  const top=folder.split('/')[0],m=/^(\d+)-/.exec(top);if(!m)return null;
+  const n=+m[1],cat=CATS.find(c=>c.from===n),pdfs=SONGS.filter(s=>(s.url||'').startsWith('Dalok/'+top+'/'));
+  if(!cat&&!pdfs.length)return null;
+  return {top,from:n,to:cat?cat.to:n+49,pdfs};
+}
+function folderChanged(){
+  try{localStorage.setItem('karaokeFolder',$('folder').value)}catch(e){}
+  const f=curFolder(),pi=pdfInfo(f);
+  $('folderInfo').innerHTML='Ide kerül: <code>Karaoke/'+esc(f)+'/</code><br>'+(pi
+    ?'Ez egy PDF-es mappa: ha a dalnak van PDF-je, ugyanazt a számot kapja (a lap megpróbálja magától párosítani), különben a következő szabad számot '+pi.from+'–'+pi.to+' között. A listában a szám szerinti helyére kerül.'
+    :'A dalok a következő szabad 6 jegyű számot kapják, és a lista végére kerülnek.');
+  renumber();
+}
+
+// ---------- számozás ----------
+function renumber(){
+  const f=curFolder(),pi=pdfInfo(f);
+  const used=new Set(KS.map(s=>s.id));
+  const usedPdf=new Set();
+  for(const r of rows){if(!r.r.lrc)continue;
+    r.pdfOpts=[];
+    if(pi){
+      const cand=pi.pdfs.filter(p=>!used.has(p.id));
+      r.pdfOpts=cand;
+      // automatikus párosítás a cím alapján
+      if(r.pdfId===undefined||!cand.some(p=>p.id===r.pdfId)||usedPdf.has(r.pdfId)){
+        const t=norm(r.title);r.pdfId=null;
+        for(const p of cand){if(usedPdf.has(p.id))continue;const pt=norm(p.title.split(' - ')[0]);
+          if(pt&&t&&(pt===t||(Math.min(pt.length,t.length)>=6&&(pt.includes(t)||t.includes(pt))))){r.pdfId=p.id;break;}}
+      }
+      if(r.pdfId!=null){usedPdf.add(r.pdfId);r.id=r.pdfId;}
+    }
+  }
+  for(const r of rows){if(!r.r.lrc)continue;
+    if(pi&&r.pdfId!=null){used.add(r.id);continue;}
+    let id;
+    if(pi){const inR=[...KS.map(s=>s.id),...SONGS.map(s=>s.id),...[...used]].filter(x=>x>=pi.from&&x<=pi.to);
+      id=(inR.length?Math.max(...inR):pi.from)+1;while(used.has(id))id++;if(id>pi.to)id=null;}
+    else{const big=[...used].filter(x=>x>=100000);id=(big.length?Math.max(...big):100000)+1;while(used.has(id))id++;}
+    r.id=id;if(id)used.add(id);
+  }
+  rows.forEach(updateRow);
+}
+function stemOf(r){
+  const pi=pdfInfo(curFolder());
+  if(pi&&r.pdfId!=null){const p=SONGS.find(s=>s.id===r.pdfId);if(p){const st=p.url.split('/').pop().replace(/\.pdf$/i,'');if(st.startsWith(p.id+'-'))return st;}
+    return r.pdfId+'-'+slug(r.title);}
+  if(pi)return r.id+'-'+slug(r.title);
+  return r.id+'-'+safeSeg(r.artist?r.artist+' - '+r.title:r.title);
+}
+function pathOf(r){return 'Karaoke/'+curFolder()+'/'+stemOf(r)+'.lrc';}
+
+// ---------- sorok ----------
+const tb=document.querySelector('#t tbody');
+function addRow(r){
+  $('t').classList.remove('hidden');
+  const tr=tb.insertRow();r.tr=tr;
+  tr.insertCell().innerHTML='<div>'+esc(r.file)+'</div><div class="small st"></div>';
+  if(!r.r.lrc){tr.cells[0].querySelector('.st').innerHTML='<span class="no">'+esc(r.err||'✘ Nincs benne időzített szöveg — ezt nem lehet feltölteni.')+'</span>';
+    tr.insertCell().colSpan=4;}
+  else{
+    tr.cells[0].querySelector('.st').innerHTML='<span class="ok">✔ '+r.r.lines+' sor</span> · akkord: '+(r.r.chords?(r.r.chSrc==='xf'?'✔ a fájlból':r.r.chSrc==='file'?'✔ .akkord.lrc':'≈ becsült'):'—');
+    const ti=document.createElement('input');ti.type='text';ti.value=r.title;ti.oninput=()=>{r.title=ti.value;updateRow(r)};tr.insertCell().appendChild(ti);
+    const ar=document.createElement('input');ar.type='text';ar.value=r.artist;ar.oninput=()=>{r.artist=ar.value;updateRow(r)};tr.insertCell().appendChild(ar);
+    const nc=tr.insertCell();
+    const sel=document.createElement('select');sel.style.maxWidth='220px';sel.onchange=()=>{r.pdfId=sel.value===''?null:+sel.value;renumber();};
+    const num=document.createElement('input');num.type='number';num.oninput=()=>{r.id=parseInt(num.value,10)||null;updateRow(r,true)};
+    nc.appendChild(sel);nc.appendChild(num);r.sel=sel;r.num=num;
+    tr.insertCell().innerHTML='<div class="small pth"></div><div class="small wr"></div>';
+  }
+  const x=tr.insertCell(),b=document.createElement('button');b.className='sec';b.textContent='✕';b.title='Kivétel a listából';
+  b.onclick=()=>{rows.splice(rows.indexOf(r),1);tr.remove();renumber();};x.appendChild(b);
+}
+function updateRow(r,keepNum){
+  if(!r.r.lrc){r.ok=false;return;}
+  const pi=pdfInfo(curFolder());
+  // PDF-párosító lenyíló
+  r.sel.classList.toggle('hidden',!pi);
+  if(pi){r.sel.innerHTML='<option value="">— nincs PDF-je, új szám —</option>'+r.pdfOpts.map(p=>'<option value="'+p.id+'">'+p.id+' · '+esc(p.title)+'</option>').join('');
+    r.sel.value=r.pdfId!=null?String(r.pdfId):'';r.num.style.display=r.pdfId!=null?'none':'';r.num.style.marginTop='6px';}
+  else r.num.style.display='';
+  if(!keepNum)r.num.value=r.id||'';
+  r.path=pathOf(r);
+  const w=[];
+  if(!r.id)w.push('<span class="no">Adj meg egy számot!</span>');
+  else if(KS.some(s=>s.id===r.id))w.push('<span class="no">A '+r.id+' szám már foglalt: '+esc(KS.find(s=>s.id===r.id).title)+'</span>');
+  else if(rows.some(o=>o!==r&&o.r.lrc&&o.id===r.id))w.push('<span class="no">Két dal ugyanazt a számot kapta.</span>');
+  if(!r.title.trim())w.push('<span class="no">Hiányzik a cím.</span>');
+  if(KS.some(s=>s.url===r.path))w.push('<span class="no">Ilyen nevű fájl már van ebben a mappában.</span>');
+  r.ok=!w.length;
+  const twin=KS.find(s=>norm(s.title)===norm(r.title)&&norm(s.artist)===norm(r.artist));
+  if(twin)w.push('<span class="warn">⚠ Hasonló dal már van: '+twin.id+' · '+esc(twin.url.replace(/^Karaoke\//,''))+' (ettől még feltölthető)</span>');
+  r.tr.querySelector('.pth').textContent=r.path;r.tr.querySelector('.wr').innerHTML=w.join('<br>');
+  refreshUp();
+}
+function refreshUp(){
+  const good=rows.filter(r=>r.r.lrc),bad=good.filter(r=>!r.ok);
+  $('upBtn').disabled=!good.length||bad.length>0;
+  $('upBtn').textContent='⬆ Feltöltés a GitHubra'+(good.length?' ('+good.length+' dal)':'');
+}
+// Kész LRC beolvasása (a mellé tett "….akkord.lrc" az akkord)
+function readLrc(text,fname){
+  const tag=k=>{const m=new RegExp('^\\['+k+':([^\\]]*)\\]','mi').exec(text);return m?m[1].trim():''};
+  const lines=text.split(/\r?\n/).filter(l=>/^\[\d+:\d/.test(l)).length;
+  let title=tag('ti'),artist=tag('ar');
+  if(!title){title=fname.replace(/\.lrc$/i,'').replace(/^\d+-/,'');if(/ - /.test(title)){const i=title.indexOf(' - ');artist=title.slice(0,i).trim();title=title.slice(i+3).trim();}}
+  return {lrc:lines?text:null,lines,meta:{title,artist},err:lines?null:'✘ Nem LRC (nincs benne időzített sor).'};
+}
+const decodeText=buf=>{try{return new TextDecoder('utf-8',{fatal:true}).decode(buf)}catch(e){return new TextDecoder('windows-1250').decode(buf)}};
+async function handle(files){
+  files=files.filter(f=>/\.(mid|midi|kar|lrc)$/i.test(f.name));
+  const chordFiles={};for(const f of files)if(/\.akkord\.lrc$/i.test(f.name))chordFiles[f.name.replace(/\.akkord\.lrc$/i,'').toLowerCase()]=f;
+  for(const f of files){
+    if(/\.akkord\.lrc$/i.test(f.name))continue;
+    let r;
+    try{
+      if(/\.lrc$/i.test(f.name)){
+        r=readLrc(decodeText(await f.arrayBuffer()),f.name);
+        const cf=chordFiles[f.name.replace(/\.lrc$/i,'').toLowerCase()];
+        if(r.lrc&&cf){r.chords=decodeText(await cf.arrayBuffer());r.chSrc='file';}
+      }else r=convertMidi(await f.arrayBuffer(),f.name);
+    }catch(e){r={lrc:null,err:'Hiba: '+e}}
+    const m=r.meta||{};
+    let title=m.title||'',artist=m.artist||'';
+    // „Előadó - Cím” fájlnév szétszedése, ha a MIDI-ben nincs cím
+    if(m.fromFile&&/ - /.test(title)){const i=title.indexOf(' - ');artist=title.slice(0,i).trim();title=title.slice(i+3).trim();}
+    const row={file:f.name,r,title,artist,err:r.err};
+    rows.push(row);addRow(row);
+  }
+  renumber();
+}
+
+// ---------- karaoke-songs.js módosítása ----------
+const ENTRY=/^\s*\{\s*id:\s*(\d+)\s*,/;
+function entryLine(r){return '  { id: '+r.id+', title: '+JSON.stringify(r.title.trim())+', artist: '+JSON.stringify(r.artist.trim())+', url: '+JSON.stringify(r.path)+' }';}
+function insertEntry(text,r){
+  const L=text.split('\n');
+  const start=L.findIndex(l=>/KARAOKE_SONGS\s*=\s*\[/.test(l));
+  let end=-1;for(let i=L.length-1;i>start;i--)if(/^\s*\];?\s*$/.test(L[i])){end=i;break;}
+  if(start<0||end<0)throw new Error('A karaoke-songs.js szerkezete nem a megszokott — nem merem módosítani.');
+  const ents=[];for(let i=start+1;i<end;i++){const m=ENTRY.exec(L[i]);if(m)ents.push({i,id:+m[1]});}
+  let after;
+  if(r.id<1000){ // PDF-es dal: a 1000 alatti dalok közé, szám szerinti helyre
+    const small=ents.filter(e=>e.id<1000),prev=small.filter(e=>e.id<r.id);
+    after=prev.length?prev[prev.length-1].i:(small.length?small[0].i-1:start);
+    if(!prev.length&&small.length){ // a legelső PDF-es dal elé: ha előtte megjegyzés áll, maradjon fölötte
+      after=small[0].i-1;}
+  }else after=ents.length?ents[ents.length-1].i:start;
+  const laterEntry=ents.some(e=>e.i>after);
+  let line=entryLine(r);
+  if(laterEntry)line+=',';
+  else if(ents.length){const li=ents[ents.length-1].i;if(!/\}\s*,\s*(\/\/.*)?$/.test(L[li]))L[li]=L[li].replace(/\}(\s*(\/\/.*)?)$/,'},$1');}
+  L.splice(after+1,0,line);
+  return L.join('\n');
+}
+
+// ---------- feltöltés ----------
+const log=t=>{$('log').innerHTML+=t+'\n'};
+async function upload(attempt=1){
+  const good=rows.filter(r=>r.r.lrc);
+  $('upBtn').disabled=true;if(attempt===1)$('log').innerHTML='';
+  try{
+    log('Feltöltés előkészítése…');
+    const ref=await gh(`/repos/${OWNER}/${REPO}/git/ref/heads/${BRANCH}`);
+    const head=ref.object.sha,commit=await gh(`/repos/${OWNER}/${REPO}/git/commits/${head}`);
+    // mindig a legfrissebb listából dolgozunk
+    let txt=await getRaw(LIST,head);const before=evalList(txt,'KARAOKE_SONGS');
+    for(const r of good){
+      if(before.some(s=>s.id===r.id))throw new Error('A '+r.id+' szám közben foglalt lett. Kattints a „Lista törlése” gombra, és húzd be újra a fájlokat.');
+      if(before.some(s=>s.url===r.path))throw new Error('A fájl már létezik: '+r.path);
+      txt=insertEntry(txt,r);
+    }
+    const after=evalList(txt,'KARAOKE_SONGS');
+    if(after.length!==before.length+good.length||!good.every(r=>after.some(s=>s.id===r.id&&s.url===r.path)))throw new Error('A karaoke-songs.js módosítása nem sikerült ellenőrizhetően — nem töltöttem fel semmit.');
+    const tree=[{path:LIST,mode:'100644',type:'blob',content:txt}];
+    for(const r of good){
+      tree.push({path:r.path,mode:'100644',type:'blob',content:r.r.lrc});
+      if(r.r.chords)tree.push({path:r.path.replace(/\.lrc$/,'.akkord.lrc'),mode:'100644',type:'blob',content:r.r.chords});
+    }
+    // a vezérlő azonnal az új listát töltse be (ne a böngésző tárolt példányát)
+    const v=new Date().toISOString().replace(/\D/g,'').slice(0,12);
+    for(const f of CACHE_BUST_FILES){
+      try{const h=await getRaw(f,head);const h2=h.replace(/karaoke-songs\.js\?v=\d+/g,'karaoke-songs.js?v='+v);
+        if(h2!==h)tree.push({path:f,mode:'100644',type:'blob',content:h2});}catch(e){}
+    }
+    log('Fájlok küldése ('+tree.length+' db)…');
+    const nt=await gh(`/repos/${OWNER}/${REPO}/git/trees`,{method:'POST',body:JSON.stringify({base_tree:commit.tree.sha,tree})});
+    const msg='Karaoke: '+good.length+' új dal ('+good.map(r=>r.id).join(', ')+')\n\n'+good.map(r=>r.id+' '+r.title+(r.artist?' — '+r.artist:'')).join('\n')+'\n\nFeltöltve a KaraokeFeltoltes.html lapról.';
+    const nc=await gh(`/repos/${OWNER}/${REPO}/git/commits`,{method:'POST',body:JSON.stringify({message:msg,tree:nt.sha,parents:[head]})});
+    try{await gh(`/repos/${OWNER}/${REPO}/git/refs/heads/${BRANCH}`,{method:'PATCH',body:JSON.stringify({sha:nc.sha,force:false})});}
+    catch(e){if(e.status===422&&attempt<3){log('Közben más is módosított a repóban — újrapróbálom…');return upload(attempt+1);}throw e;}
+    log('<span class="ok">✔ Kész! '+good.length+' dal feltöltve:</span>');
+    for(const r of good)log('   '+r.id+' · '+esc(r.title)+(r.artist?' — '+esc(r.artist):''));
+    log('Kb. 1–2 perc múlva megjelenik a <a href="ControllerKaraoke.html" target="_blank">karaoke vezérlőben</a> (ha már nyitva van, töltsd újra).');
+    // lista frissítése, a feltöltött sorok törlése
+    await loadLists();rows.length=0;tb.innerHTML='';$('t').classList.add('hidden');$('newSub').value='';refreshUp();
+  }catch(e){log('<span class="no">✘ '+esc(e.message)+'</span>');refreshUp();}
+}
+
+// ---------- események ----------
+$('loginBtn').onclick=()=>login($('tok').value);
+$('tok').onkeydown=e=>{if(e.key==='Enter')login($('tok').value)};
+$('logoutBtn').onclick=()=>{try{localStorage.removeItem('ghToken')}catch(e){}TOKEN='';location.reload();};
+$('folder').onchange=folderChanged;$('newSub').oninput=folderChanged;
+$('upBtn').onclick=()=>upload();
+$('clrBtn').onclick=()=>{rows.length=0;tb.innerHTML='';$('t').classList.add('hidden');$('log').innerHTML='';refreshUp();};
+const dr=$('drop'),fi=$('f');
+dr.onclick=()=>fi.click();fi.onchange=()=>{handle([...fi.files]);fi.value=''};
+dr.ondragover=e=>{e.preventDefault();dr.classList.add('hov')};
+dr.ondragleave=()=>dr.classList.remove('hov');
+dr.ondrop=e=>{e.preventDefault();dr.classList.remove('hov');handle([...e.dataTransfer.files])};
+try{const t=localStorage.getItem('ghToken');if(t)login(t);}catch(e){}
+</script></body></html>

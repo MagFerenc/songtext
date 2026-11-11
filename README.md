@@ -5,6 +5,7 @@
 - 🎤 **[Karaoke vezérlő](https://magferenc.github.io/songtext/ControllerKaraoke.html)** — karaoke dal kiválasztása és indítása
 - 📱 **[Karaoke kijelző](https://magferenc.github.io/songtext/viewerKaraoke.html)** — a nézők ezen látják a futó szöveget
 - ⭐ **[Kedvencek rendezése](https://magferenc.github.io/songtext/KedvencekKaraoke.html)** — a karaoke kedvencek K számai, sorrendje, mentése
+- ⬆️ **[Karaoke dal feltöltése](https://magferenc.github.io/songtext/KaraokeFeltoltes.html)** — MIDI behúzása → LRC + akkord + szám + lista, egy kattintással a GitHubra
 - 🛠️ **[MIDI → LRC átalakító](https://magferenc.github.io/songtext/midi2lrc.html)** — karaoke-MIDI-ből időzített dalszöveg
 
 ---
@@ -76,6 +77,20 @@ Karaoke/
 A vezérlő lenyílójában a mappák fastruktúraként látszanak, a „Dal száma” mezőbe a szám beírható.
 
 ## Új karaoke dal hozzáadása
+
+### Egyszerűen: a „Karaoke dal feltöltése” lappal
+
+1. Nyisd meg a **[Karaoke dal feltöltése](https://magferenc.github.io/songtext/KaraokeFeltoltes.html)** lapot.
+   Első alkalommal egy GitHub-kulcsot (tokent) kér — a lapon a „Honnan van kulcs?” alatt le van írva,
+   hogyan kell egyszer elkészíteni. Utána a gép megjegyzi.
+2. Válaszd ki a mappát (ha kell, adj meg új almappát), és húzd be a karaoke-MIDI fájl(oka)t
+   (vagy kész `.lrc` + `.akkord.lrc` fájlokat).
+3. A lap elkészíti a szöveget és az akkordokat, számot ad (PDF-es mappában a PDF számát, ha
+   megtalálja), a cím, előadó és szám átírható.
+4. **⬆ Feltöltés a GitHubra** — a fájlok és a `karaoke-songs.js` új sorai egyszerre kerülnek fel.
+   Pár perc múlva ott van a karaoke vezérlőben.
+
+### Kézzel
 
 1. Nyisd meg a **MIDI → LRC átalakítót**, húzd rá a karaoke-MIDI fájl(oka)t vagy mappát, és töltsd le a ZIP-et.
 2. A repóban nyisd meg a megfelelő mappát a `Karaoke` alatt, és töltsd fel az `.lrc` (és `.akkord.lrc`)

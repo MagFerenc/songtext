@@ -15,7 +15,8 @@
 // látszanak (a mappaneveket az url-ből veszi), pl.:
 //   Karaoke/900-Magyar/01-Ad Studio/90101-A Nap szerelmese.lrc
 //
-// Új dal hozzáadása:
+// Új dal hozzáadása — legegyszerűbben a KaraokeFeltoltes.html lappal (mindent magától beír ide).
+// Kézzel:
 //   1. Töltsd fel az .lrc fájlt (és ha van, a .akkord.lrc-t) a megfelelő mappába.
 //   2. Írj ide egy új sort a mappája többi dala után, pl.:
 //   { id: 90104, title: "Dal címe", artist: "Ad Studio", url: "Karaoke/900-Magyar/01-Ad Studio/90104-Dal címe.lrc" },
