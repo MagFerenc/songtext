@@ -25,7 +25,7 @@ code{background:#222;padding:1px 5px;border-radius:4px}
 .hidden{display:none!important}
 </style></head><body>
 <h1>🎤 Karaoke dal feltöltése</h1>
-<p>Húzd be a karaoke-MIDI fájl(oka)t, válaszd ki a mappát — a lap elkészíti a szöveget (LRC) és az akkordokat,
+<p>Húzd be a karaoke-MIDI fájlt, válaszd ki a mappát — a lap elkészíti a szöveget (LRC) és az akkordokat,
 számot ad, beírja a <code>karaoke-songs.js</code>-be, és mindent egyben feltölt a GitHubra. Pár perc múlva ott van a karaoke vezérlőben.</p>
 
 <h2>1. Belépés a GitHubra</h2>
@@ -50,15 +50,15 @@ számot ad, beírja a <code>karaoke-songs.js</code>-be, és mindent egyben felt�
   <p id="folderInfo" style="margin-top:10px"></p>
 </div>
 
-<h2>3. MIDI fájlok</h2>
-<div id="drop">Húzd ide a karaoke-MIDI / KAR fájlokat (vagy kész .lrc + .akkord.lrc fájlokat), vagy kattints a tallózáshoz
-  <input id="f" type="file" accept=".mid,.midi,.kar,.lrc" multiple hidden></div>
+<h2>3. MIDI fájl</h2>
+<div id="drop">Húzd ide a karaoke-MIDI / KAR fájlt (egyszerre egyet), vagy kattints a tallózáshoz
+  <input id="f" type="file" accept=".mid,.midi,.kar,.lrc" hidden></div>
 <table id="t" class="hidden"><thead><tr><th>MIDI fájl</th><th style="width:22%">Cím</th><th style="width:18%">Előadó</th><th>Szám</th><th style="width:30%">Fájl a GitHubon</th><th></th></tr></thead><tbody></tbody></table>
 
 <h2>4. Feltöltés</h2>
 <div class="row">
   <button id="upBtn" disabled>⬆ Feltöltés a GitHubra</button>
-  <button class="sec" id="clrBtn">Lista törlése</button>
+  <button class="sec" id="clrBtn">Mégse</button>
   <button class="sec" id="logoutBtn" style="margin-left:auto">Kilépés (kulcs törlése erről a gépről)</button>
 </div>
 <div id="log"></div>
@@ -237,7 +237,7 @@ function updateRow(r,keepNum){
 function refreshUp(){
   const good=rows.filter(r=>r.r.lrc),bad=good.filter(r=>!r.ok);
   $('upBtn').disabled=!good.length||bad.length>0;
-  $('upBtn').textContent='⬆ Feltöltés a GitHubra'+(good.length?' ('+good.length+' dal)':'');
+  $('upBtn').textContent='⬆ Feltöltés a GitHubra';
 }
 // Kész LRC beolvasása (a mellé tett "….akkord.lrc" az akkord)
 function readLrc(text,fname){
@@ -250,6 +250,11 @@ function readLrc(text,fname){
 const decodeText=buf=>{try{return new TextDecoder('utf-8',{fatal:true}).decode(buf)}catch(e){return new TextDecoder('windows-1250').decode(buf)}};
 async function handle(files){
   files=files.filter(f=>/\.(mid|midi|kar|lrc)$/i.test(f.name));
+  // egyszerre csak egy dal: az első MIDI (vagy egy .lrc a hozzá tartozó .akkord.lrc-vel)
+  const main=files.find(f=>/\.(mid|midi|kar)$/i.test(f.name))||files.find(f=>/\.lrc$/i.test(f.name)&&!/\.akkord\.lrc$/i.test(f.name));
+  if(!main)return;
+  files=files.filter(f=>f===main||(/\.lrc$/i.test(main.name)&&f.name.toLowerCase()===main.name.toLowerCase().replace(/\.lrc$/,'.akkord.lrc')));
+  rows.length=0;tb.innerHTML='';$('log').innerHTML='';
   const chordFiles={};for(const f of files)if(/\.akkord\.lrc$/i.test(f.name))chordFiles[f.name.replace(/\.akkord\.lrc$/i,'').toLowerCase()]=f;
   for(const f of files){
     if(/\.akkord\.lrc$/i.test(f.name))continue;
@@ -307,7 +312,7 @@ async function upload(attempt=1){
     // mindig a legfrissebb listából dolgozunk
     let txt=await getRaw(LIST,head);const before=evalList(txt,'KARAOKE_SONGS');
     for(const r of good){
-      if(before.some(s=>s.id===r.id))throw new Error('A '+r.id+' szám közben foglalt lett. Kattints a „Lista törlése” gombra, és húzd be újra a fájlokat.');
+      if(before.some(s=>s.id===r.id))throw new Error('A '+r.id+' szám közben foglalt lett. Húzd be újra a fájlt.');
       if(before.some(s=>s.url===r.path))throw new Error('A fájl már létezik: '+r.path);
       txt=insertEntry(txt,r);
     }
@@ -330,7 +335,7 @@ async function upload(attempt=1){
     const nc=await gh(`/repos/${OWNER}/${REPO}/git/commits`,{method:'POST',body:JSON.stringify({message:msg,tree:nt.sha,parents:[head]})});
     try{await gh(`/repos/${OWNER}/${REPO}/git/refs/heads/${BRANCH}`,{method:'PATCH',body:JSON.stringify({sha:nc.sha,force:false})});}
     catch(e){if(e.status===422&&attempt<3){log('Közben más is módosított a repóban — újrapróbálom…');return upload(attempt+1);}throw e;}
-    log('<span class="ok">✔ Kész! '+good.length+' dal feltöltve:</span>');
+    log('<span class="ok">✔ Kész, feltöltve:</span>');
     for(const r of good)log('   '+r.id+' · '+esc(r.title)+(r.artist?' — '+esc(r.artist):''));
     log('Kb. 1–2 perc múlva megjelenik a <a href="ControllerKaraoke.html" target="_blank">karaoke vezérlőben</a> (ha már nyitva van, töltsd újra).');
     // lista frissítése, a feltöltött sorok törlése
