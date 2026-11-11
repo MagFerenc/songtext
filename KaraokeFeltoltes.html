@@ -36,21 +36,6 @@ számot ad, beírja a <code>karaoke-songs.js</code>-be, és mindent egyben felt�
     <button id="loginBtn">Belépés</button>
   </div>
   <div id="loginMsg" class="hint" style="margin-top:8px"></div>
-  <details style="margin-top:6px"><summary>Honnan van kulcs? (csak egyszer kell)</summary>
-    <p style="margin-top:8px">A GitHub jelszóval nem enged feltölteni, ehhez egy „kulcs” (token) kell. Ezt egyszer kell elkészíteni, utána ez a gép megjegyzi.</p>
-    <ol>
-      <li>Jelentkezz be a GitHubra azzal a fiókkal, amelyiké a <b>songtext</b> repó, és nyisd meg:
-        <a href="https://github.com/settings/personal-access-tokens/new" target="_blank">github.com/settings/personal-access-tokens/new</a></li>
-      <li><b>Token name:</b> pl. <code>karaoke feltöltés</code> · <b>Expiration:</b> amilyen hosszút enged (pl. 1 év).</li>
-      <li><b>Repository access:</b> „Only select repositories” → <b>songtext</b>.</li>
-      <li><b>Permissions → Repository permissions → Contents:</b> <b>Read and write</b>.</li>
-      <li>Lent <b>Generate token</b>, majd a megjelenő hosszú kódot (<code>github_pat_…</code>) másold be ide fent.</li>
-    </ol>
-    <p>Ha nem a repó tulajdonosa, csak közreműködő (collaborator) készíti a kulcsot, akkor a „classic” fajta kell:
-      <a href="https://github.com/settings/tokens/new?scopes=public_repo&description=karaoke%20feltoltes" target="_blank">ide kattintva</a>
-      (a <code>public_repo</code> jog már be van jelölve) → Generate token.</p>
-    <p>Ha a kulcs lejár vagy elveszik, csak készíts újat ugyanígy. A kulcs csak ezen a gépen, ebben a böngészőben van elmentve.</p>
-  </details>
 </div>
 
 <div id="main" class="hidden">

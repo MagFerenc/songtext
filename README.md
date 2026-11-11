@@ -81,8 +81,7 @@ A vezérlő lenyílójában a mappák fastruktúraként látszanak, a „Dal sz�
 ### Egyszerűen: a „Karaoke dal feltöltése” lappal
 
 1. Nyisd meg a **[Karaoke dal feltöltése](https://magferenc.github.io/songtext/KaraokeFeltoltes.html)** lapot.
-   Első alkalommal egy GitHub-kulcsot (tokent) kér — a lapon a „Honnan van kulcs?” alatt le van írva,
-   hogyan kell egyszer elkészíteni. Utána a gép megjegyzi.
+   Első alkalommal a GitHub-kulcsot (tokent) kéri, utána a gép megjegyzi.
 2. Válaszd ki a mappát (ha kell, adj meg új almappát), és húzd be a karaoke-MIDI fájl(oka)t
    (vagy kész `.lrc` + `.akkord.lrc` fájlokat).
 3. A lap elkészíti a szöveget és az akkordokat, számot ad (PDF-es mappában a PDF számát, ha
