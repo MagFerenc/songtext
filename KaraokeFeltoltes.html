@@ -52,7 +52,7 @@ számot ad, beírja a <code>karaoke-songs.js</code>-be, és mindent egyben felt�
 
 <h2>3. MIDI fájl</h2>
 <div id="drop">Húzd ide a karaoke-MIDI / KAR fájlt (egyszerre egyet), vagy kattints a tallózáshoz
-  <input id="f" type="file" accept=".mid,.midi,.kar,.lrc" hidden></div>
+  <input id="f" type="file" accept=".mid,.midi,.kar" hidden></div>
 <table id="t" class="hidden"><thead><tr><th>MIDI fájl</th><th style="width:22%">Cím</th><th style="width:18%">Előadó</th><th>Szám</th><th style="width:30%">Fájl a GitHubon</th><th></th></tr></thead><tbody></tbody></table>
 
 <h2>4. Feltöltés</h2>
@@ -95,7 +95,7 @@ const evalList=(txt,name)=>new Function(txt+'\n;return '+name+';')();
 
 // ---------- állapot ----------
 let KS=[],SONGS=[],CATS=[],listText='';
-const rows=[]; // {file, r(convert), title, artist, id, pdfId, stem, el...}
+const rows=[]; // {file, r(convert), title, artist, id, el...}
 
 // ---------- belépés ----------
 async function login(tok){
@@ -148,7 +148,7 @@ function folderChanged(){
   try{localStorage.setItem('karaokeFolder',$('folder').value)}catch(e){}
   const f=curFolder(),pi=pdfInfo(f);
   $('folderInfo').innerHTML='Ide kerül: <code>Karaoke/'+esc(f)+'/</code><br>'+(pi
-    ?'Ez egy PDF-es mappa: ha a dalnak van PDF-je, ugyanazt a számot kapja (a lap megpróbálja magától párosítani), különben a következő szabad számot '+pi.from+'–'+pi.to+' között. A listában a szám szerinti helyére kerül.'
+    ?'A dal a következő szabad számot kapja '+pi.from+'–'+pi.to+' között (átírható), és a listában a szám szerinti helyére kerül.'
     :'A dalok a következő szabad 6 jegyű számot kapják, és a lista végére kerülnek.');
   renumber();
 }
@@ -157,23 +157,7 @@ function folderChanged(){
 function renumber(){
   const f=curFolder(),pi=pdfInfo(f);
   const used=new Set(KS.map(s=>s.id));
-  const usedPdf=new Set();
   for(const r of rows){if(!r.r.lrc)continue;
-    r.pdfOpts=[];
-    if(pi){
-      const cand=pi.pdfs.filter(p=>!used.has(p.id));
-      r.pdfOpts=cand;
-      // automatikus párosítás a cím alapján
-      if(r.pdfId===undefined||!cand.some(p=>p.id===r.pdfId)||usedPdf.has(r.pdfId)){
-        const t=norm(r.title);r.pdfId=null;
-        for(const p of cand){if(usedPdf.has(p.id))continue;const pt=norm(p.title.split(' - ')[0]);
-          if(pt&&t&&(pt===t||(Math.min(pt.length,t.length)>=6&&(pt.includes(t)||t.includes(pt))))){r.pdfId=p.id;break;}}
-      }
-      if(r.pdfId!=null){usedPdf.add(r.pdfId);r.id=r.pdfId;}
-    }
-  }
-  for(const r of rows){if(!r.r.lrc)continue;
-    if(pi&&r.pdfId!=null){used.add(r.id);continue;}
     let id;
     if(pi){const inR=[...KS.map(s=>s.id),...SONGS.map(s=>s.id),...[...used]].filter(x=>x>=pi.from&&x<=pi.to);
       id=(inR.length?Math.max(...inR):pi.from)+1;while(used.has(id))id++;if(id>pi.to)id=null;}
@@ -184,8 +168,6 @@ function renumber(){
 }
 function stemOf(r){
   const pi=pdfInfo(curFolder());
-  if(pi&&r.pdfId!=null){const p=SONGS.find(s=>s.id===r.pdfId);if(p){const st=p.url.split('/').pop().replace(/\.pdf$/i,'');if(st.startsWith(p.id+'-'))return st;}
-    return r.pdfId+'-'+slug(r.title);}
   if(pi)return r.id+'-'+slug(r.title);
   return r.id+'-'+safeSeg(r.artist?r.artist+' - '+r.title:r.title);
 }
@@ -200,13 +182,12 @@ function addRow(r){
   if(!r.r.lrc){tr.cells[0].querySelector('.st').innerHTML='<span class="no">'+esc(r.err||'✘ Nincs benne időzített szöveg — ezt nem lehet feltölteni.')+'</span>';
     tr.insertCell().colSpan=4;}
   else{
-    tr.cells[0].querySelector('.st').innerHTML='<span class="ok">✔ '+r.r.lines+' sor</span> · akkord: '+(r.r.chords?(r.r.chSrc==='xf'?'✔ a fájlból':r.r.chSrc==='file'?'✔ .akkord.lrc':'≈ becsült'):'—');
+    tr.cells[0].querySelector('.st').innerHTML='<span class="ok">✔ '+r.r.lines+' sor</span> · akkord: '+(r.r.chords?(r.r.chSrc==='xf'?'✔ a fájlból':'≈ becsült'):'—');
     const ti=document.createElement('input');ti.type='text';ti.value=r.title;ti.oninput=()=>{r.title=ti.value;updateRow(r)};tr.insertCell().appendChild(ti);
     const ar=document.createElement('input');ar.type='text';ar.value=r.artist;ar.oninput=()=>{r.artist=ar.value;updateRow(r)};tr.insertCell().appendChild(ar);
     const nc=tr.insertCell();
-    const sel=document.createElement('select');sel.style.maxWidth='220px';sel.onchange=()=>{r.pdfId=sel.value===''?null:+sel.value;renumber();};
     const num=document.createElement('input');num.type='number';num.oninput=()=>{r.id=parseInt(num.value,10)||null;updateRow(r,true)};
-    nc.appendChild(sel);nc.appendChild(num);r.sel=sel;r.num=num;
+    nc.appendChild(num);r.num=num;
     tr.insertCell().innerHTML='<div class="small pth"></div><div class="small wr"></div>';
   }
   const x=tr.insertCell(),b=document.createElement('button');b.className='sec';b.textContent='✕';b.title='Kivétel a listából';
@@ -214,12 +195,6 @@ function addRow(r){
 }
 function updateRow(r,keepNum){
   if(!r.r.lrc){r.ok=false;return;}
-  const pi=pdfInfo(curFolder());
-  // PDF-párosító lenyíló
-  r.sel.classList.toggle('hidden',!pi);
-  if(pi){r.sel.innerHTML='<option value="">— nincs PDF-je, új szám —</option>'+r.pdfOpts.map(p=>'<option value="'+p.id+'">'+p.id+' · '+esc(p.title)+'</option>').join('');
-    r.sel.value=r.pdfId!=null?String(r.pdfId):'';r.num.style.display=r.pdfId!=null?'none':'';r.num.style.marginTop='6px';}
-  else r.num.style.display='';
   if(!keepNum)r.num.value=r.id||'';
   r.path=pathOf(r);
   const w=[];
@@ -239,32 +214,16 @@ function refreshUp(){
   $('upBtn').disabled=!good.length||bad.length>0;
   $('upBtn').textContent='⬆ Feltöltés a GitHubra';
 }
-// Kész LRC beolvasása (a mellé tett "….akkord.lrc" az akkord)
-function readLrc(text,fname){
-  const tag=k=>{const m=new RegExp('^\\['+k+':([^\\]]*)\\]','mi').exec(text);return m?m[1].trim():''};
-  const lines=text.split(/\r?\n/).filter(l=>/^\[\d+:\d/.test(l)).length;
-  let title=tag('ti'),artist=tag('ar');
-  if(!title){title=fname.replace(/\.lrc$/i,'').replace(/^\d+-/,'');if(/ - /.test(title)){const i=title.indexOf(' - ');artist=title.slice(0,i).trim();title=title.slice(i+3).trim();}}
-  return {lrc:lines?text:null,lines,meta:{title,artist},err:lines?null:'✘ Nem LRC (nincs benne időzített sor).'};
-}
-const decodeText=buf=>{try{return new TextDecoder('utf-8',{fatal:true}).decode(buf)}catch(e){return new TextDecoder('windows-1250').decode(buf)}};
 async function handle(files){
-  files=files.filter(f=>/\.(mid|midi|kar|lrc)$/i.test(f.name));
-  // egyszerre csak egy dal: az első MIDI (vagy egy .lrc a hozzá tartozó .akkord.lrc-vel)
-  const main=files.find(f=>/\.(mid|midi|kar)$/i.test(f.name))||files.find(f=>/\.lrc$/i.test(f.name)&&!/\.akkord\.lrc$/i.test(f.name));
+  // egyszerre csak egy dal: az első MIDI
+  const main=files.find(f=>/\.(mid|midi|kar)$/i.test(f.name));
   if(!main)return;
-  files=files.filter(f=>f===main||(/\.lrc$/i.test(main.name)&&f.name.toLowerCase()===main.name.toLowerCase().replace(/\.lrc$/,'.akkord.lrc')));
+  files=[main];
   rows.length=0;tb.innerHTML='';$('log').innerHTML='';
-  const chordFiles={};for(const f of files)if(/\.akkord\.lrc$/i.test(f.name))chordFiles[f.name.replace(/\.akkord\.lrc$/i,'').toLowerCase()]=f;
   for(const f of files){
-    if(/\.akkord\.lrc$/i.test(f.name))continue;
     let r;
     try{
-      if(/\.lrc$/i.test(f.name)){
-        r=readLrc(decodeText(await f.arrayBuffer()),f.name);
-        const cf=chordFiles[f.name.replace(/\.lrc$/i,'').toLowerCase()];
-        if(r.lrc&&cf){r.chords=decodeText(await cf.arrayBuffer());r.chSrc='file';}
-      }else r=convertMidi(await f.arrayBuffer(),f.name);
+      r=convertMidi(await f.arrayBuffer(),f.name);
     }catch(e){r={lrc:null,err:'Hiba: '+e}}
     const m=r.meta||{};
     let title=m.title||'',artist=m.artist||'';
