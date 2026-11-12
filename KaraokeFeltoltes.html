@@ -1,5 +1,5 @@
 <!DOCTYPE html><html lang="hu"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Karaoke dal feltöltése</title><style>
+<title>Karaoke dal feltöltése / törlése / mentés</title><style>
 body{margin:0;font-family:system-ui,sans-serif;background:#111;color:#ddd;padding:20px;max-width:1200px}
 h1{font-size:24px;margin:0 0 6px}h2{font-size:18px;margin:26px 0 8px;color:#ffcc00}
 p,.hint{color:#999;margin:0 0 10px;font-size:14px}
@@ -18,7 +18,10 @@ td input[type=text]{width:100%;box-sizing:border-box}
 .small{font-size:12px;color:#999;word-break:break-all}
 .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
 #folder{max-width:100%;min-width:320px}
-#log{white-space:pre-wrap;font-size:14px;margin-top:12px}
+#log,#delLog,#zipLog{white-space:pre-wrap;font-size:14px;margin-top:12px}
+#delHits div{padding:6px 8px;border-bottom:1px solid #2a2a2a;cursor:pointer}#delHits div:hover{background:#222}
+#delSel{margin-top:10px}
+button.red{background:#c33;color:#fff}
 details summary{cursor:pointer;color:#ffcc00}
 details ol{color:#bbb;font-size:14px;line-height:1.6}
 code{background:#222;padding:1px 5px;border-radius:4px}
@@ -59,9 +62,26 @@ számot ad, beírja a <code>karaoke-songs.js</code>-be, és mindent egyben felt�
 <div class="row">
   <button id="upBtn" disabled>⬆ Feltöltés a GitHubra</button>
   <button class="sec" id="clrBtn">Mégse</button>
-  <button class="sec" id="logoutBtn" style="margin-left:auto">Kilépés (kulcs törlése erről a gépről)</button>
 </div>
 <div id="log"></div>
+
+<h2>🗑 Dal törlése</h2>
+<div class="box">
+  <input type="text" id="delQ" placeholder="Keresés: szám, cím vagy előadó" style="width:100%;max-width:520px;box-sizing:border-box">
+  <div id="delHits" class="small" style="font-size:14px;color:#ccc;max-height:300px;overflow:auto"></div>
+  <div id="delSel" class="hidden"></div>
+  <div id="delLog"></div>
+</div>
+
+<h2>💾 Mentés</h2>
+<div class="box">
+  <p>A teljes GitHub-tartalom (minden mappa és fájl) egy ZIP-be, a nevében a dátummal és az órával.
+  Pár percig is eltarthat, ne zárd be közben a lapot.</p>
+  <button id="zipBtn">💾 Teljes mentés ZIP-be</button>
+  <div id="zipLog"></div>
+</div>
+
+<div class="row" style="margin-top:30px"><button class="sec" id="logoutBtn" style="margin-left:auto">Kilépés (kulcs törlése erről a gépről)</button></div>
 </div>
 
 <script src="midi2lrc-core.js?v=1"></script>
@@ -302,7 +322,161 @@ async function upload(attempt=1){
   }catch(e){log('<span class="no">✘ '+esc(e.message)+'</span>');refreshUp();}
 }
 
+// ---------- közös: egy commit a GitHubra (fájlok írása/törlése egyszerre) ----------
+// entries: [{path, content}] írás, [{path, del:true}] törlés
+async function commitFiles(head,baseTree,entries,msg){
+  const tree=entries.map(e=>e.del?{path:e.path,mode:'100644',type:'blob',sha:null}:{path:e.path,mode:'100644',type:'blob',content:e.content});
+  // a vezérlő azonnal az új listát töltse be (ne a böngésző tárolt példányát)
+  const v=new Date().toISOString().replace(/\D/g,'').slice(0,12);
+  for(const f of CACHE_BUST_FILES){
+    try{const h=await getRaw(f,head);const h2=h.replace(/karaoke-songs\.js\?v=\d+/g,'karaoke-songs.js?v='+v);
+      if(h2!==h)tree.push({path:f,mode:'100644',type:'blob',content:h2});}catch(e){}
+  }
+  const nt=await gh(`/repos/${OWNER}/${REPO}/git/trees`,{method:'POST',body:JSON.stringify({base_tree:baseTree,tree})});
+  const nc=await gh(`/repos/${OWNER}/${REPO}/git/commits`,{method:'POST',body:JSON.stringify({message:msg,tree:nt.sha,parents:[head]})});
+  await gh(`/repos/${OWNER}/${REPO}/git/refs/heads/${BRANCH}`,{method:'PATCH',body:JSON.stringify({sha:nc.sha,force:false})});
+}
+async function fileExists(path,ref){
+  try{await gh(`/repos/${OWNER}/${REPO}/contents/${encPath(path)}?ref=${encodeURIComponent(ref)}`);return true;}
+  catch(e){if(e.status===404)return false;throw e;}
+}
+
+// ---------- törlés ----------
+let delSong=null;
+function delSearch(){
+  const q=norm($('delQ').value);$('delHits').innerHTML='';
+  if(!q)return;
+  const hits=KS.filter(s=>String(s.id)===q||norm(s.title+' '+(s.artist||'')).includes(q)).slice(0,30);
+  if(!hits.length){$('delHits').textContent='Nincs találat.';return;}
+  for(const s of hits){const d=document.createElement('div');
+    d.innerHTML='<b>'+s.id+'</b> · '+esc(s.title)+(s.artist?' — '+esc(s.artist):'')+'<br><span class="small">'+esc(s.url.replace(/^Karaoke\//,''))+'</span>';
+    d.onclick=()=>delPick(s);$('delHits').appendChild(d);}
+}
+function delPick(s){
+  delSong=s;$('delHits').innerHTML='';$('delLog').innerHTML='';
+  const box=$('delSel');box.classList.remove('hidden');
+  box.innerHTML='<div>Kiválasztva: <b>'+s.id+'</b> · '+esc(s.title)+(s.artist?' — '+esc(s.artist):'')+'<br><span class="small">'+esc(s.url)+'</span></div>'
+    +'<p style="margin-top:8px">Törlődik: a dal sora a <code>karaoke-songs.js</code>-ből, az <code>.lrc</code> és az <code>.akkord.lrc</code> fájl.</p>'
+    +'<div class="row"><button class="red" id="delGo">🗑 Törlés</button><button class="sec" id="delNo">Mégse</button></div>';
+  $('delNo').onclick=delCancel;
+  $('delGo').onclick=()=>{ // második megerősítés
+    box.querySelector('.row').innerHTML='<b class="warn">Biztosan törlöd a '+s.id+' számú dalt?</b><button class="red" id="delYes">Igen, törlöm</button><button class="sec" id="delNo2">Mégse</button>';
+    $('delYes').onclick=()=>deleteSong(s);$('delNo2').onclick=delCancel;};
+}
+function delCancel(){delSong=null;$('delSel').classList.add('hidden');$('delSel').innerHTML='';}
+// A dal sorának kivétele. Csak akkor módosít, ha pontosan egy sor illik rá, és utána
+// a lista PONTOSAN ugyanaz, mint előtte, csak ez az egy dal hiányzik belőle.
+function removeEntry(text,song){
+  const L=text.split('\n');
+  const idx=[];for(let i=0;i<L.length;i++){const m=ENTRY.exec(L[i]);if(m&&+m[1]===song.id)idx.push(i);}
+  if(idx.length!==1)throw new Error('A '+song.id+' számú dal sora nem egyértelmű a listában ('+idx.length+' találat) — nem merem törölni.');
+  const i=idx[0],line=L[i];
+  if((line.match(/\{\s*id\s*:/g)||[]).length!==1||!/\}\s*,?\s*(\/\/.*)?$/.test(line))throw new Error('A dal sora szokatlan formájú — nem merem törölni, kézzel kell.');
+  L.splice(i,1);
+  // ha az utolsó dal volt, az új utolsó sor végéről lekerül a vessző
+  let end=-1;for(let k=L.length-1;k>=0;k--)if(/^\s*\];?\s*$/.test(L[k])){end=k;break;}
+  let last=-1;for(let k=end-1;k>=0;k--){if(ENTRY.test(L[k])){last=k;break;}if(/^\s*(\/\/.*)?$/.test(L[k]))continue;break;}
+  if(last>=0&&last>=i-1)L[last]=L[last].replace(/\}\s*,(\s*(\/\/.*)?)$/,'}$1');
+  return L.join('\n');
+}
+async function deleteSong(song,attempt=1){
+  const box=$('delSel');box.querySelectorAll('button').forEach(b=>b.disabled=true);
+  const lg=t=>{$('delLog').innerHTML+=t+'\n'};if(attempt===1)$('delLog').innerHTML='';
+  try{
+    lg('Törlés előkészítése…');
+    const ref=await gh(`/repos/${OWNER}/${REPO}/git/ref/heads/${BRANCH}`);
+    const head=ref.object.sha,commit=await gh(`/repos/${OWNER}/${REPO}/git/commits/${head}`);
+    const txt=await getRaw(LIST,head),before=evalList(txt,'KARAOKE_SONGS');
+    const cur=before.find(s=>s.id===song.id);
+    if(!cur||cur.url!==song.url)throw new Error('A dal közben megváltozott vagy már nincs a listában. Töltsd újra a lapot.');
+    const txt2=removeEntry(txt,song),after=evalList(txt2,'KARAOKE_SONGS');
+    // biztonsági ellenőrzés: minden más dal betűre ugyanaz, ugyanabban a sorrendben
+    if(JSON.stringify(after)!==JSON.stringify(before.filter(s=>s!==cur)))throw new Error('Ellenőrzés: a lista a törlés után nem lenne hibátlan — nem töröltem semmit.');
+    const entries=[{path:LIST,content:txt2}],chord=song.url.replace(/\.lrc$/i,'.akkord.lrc');
+    const hasLrc=await fileExists(song.url,head),hasCh=chord!==song.url&&await fileExists(chord,head);
+    if(hasLrc)entries.push({path:song.url,del:true});else lg('<span class="warn">Az .lrc fájl már nem volt meg, csak a lista sora törlődik.</span>');
+    if(hasCh)entries.push({path:chord,del:true});
+    try{await commitFiles(head,commit.tree.sha,entries,'Karaoke: törölve '+song.id+' '+song.title+(song.artist?' — '+song.artist:'')+'\n\n'+song.url+'\n\nTörölve a KaraokeFeltoltes.html lapról.');}
+    catch(e){if(e.status===422&&attempt<3){lg('Közben más is módosított — újrapróbálom…');return deleteSong(song,attempt+1);}throw e;}
+    lg('<span class="ok">✔ Törölve: '+song.id+' · '+esc(song.title)+'</span>');
+    lg('Kb. 1–2 perc múlva eltűnik a karaoke vezérlőből is. Ha kedvenc volt, a kedvencek rendezésénél „a dal fájlja nem található” jelzéssel marad — ott a 🗑 gombbal kiveheted.');
+    $('delSel').classList.add('hidden');$('delSel').innerHTML='';$('delQ').value='';delSong=null;
+    await loadLists();
+  }catch(e){lg('<span class="no">✘ '+esc(e.message)+'</span>');box.querySelectorAll('button').forEach(b=>b.disabled=false);}
+}
+
+// ---------- teljes mentés ZIP-be ----------
+const CRC32T=(()=>{const t=new Uint32Array(256);for(let n=0;n<256;n++){let c=n;for(let k=0;k<8;k++)c=c&1?0xEDB88320^(c>>>1):c>>>1;t[n]=c>>>0}return t})();
+const crc32b=b=>{let c=0xFFFFFFFF;for(let i=0;i<b.length;i++)c=CRC32T[(c^b[i])&255]^(c>>>8);return(c^0xFFFFFFFF)>>>0};
+async function deflate(u8){
+  if(typeof CompressionStream==='undefined')return null;
+  try{const cs=new CompressionStream('deflate-raw');const out=new Response(new Blob([u8]).stream().pipeThrough(cs)).arrayBuffer();return new Uint8Array(await out);}catch(e){return null}
+}
+// files: [{name, data:Uint8Array}] → ZIP Blob (tömörítve, ha a böngésző tudja)
+async function makeZip(files,onProg){
+  const enc=new TextEncoder(),parts=[],cen=[];let off=0,n=0;
+  const d=new Date(),dt=((d.getHours()<<11)|(d.getMinutes()<<5)|(d.getSeconds()>>1)),dd=(((d.getFullYear()-1980)<<9)|((d.getMonth()+1)<<5)|d.getDate());
+  for(const f of files){
+    const nm=enc.encode(f.name),crc=crc32b(f.data);
+    let comp=/\.(pdf|png|jpe?g|gif|zip|webp|mp3)$/i.test(f.name)?null:await deflate(f.data);
+    let method=8;if(!comp||comp.length>=f.data.length){comp=f.data;method=0;}
+    const h=new DataView(new ArrayBuffer(30));
+    h.setUint32(0,0x04034b50,true);h.setUint16(4,20,true);h.setUint16(6,0x0800,true);h.setUint16(8,method,true);h.setUint16(10,dt,true);h.setUint16(12,dd,true);
+    h.setUint32(14,crc,true);h.setUint32(18,comp.length,true);h.setUint32(22,f.data.length,true);h.setUint16(26,nm.length,true);
+    parts.push(h,nm,comp);
+    const c=new DataView(new ArrayBuffer(46));
+    c.setUint32(0,0x02014b50,true);c.setUint16(4,20,true);c.setUint16(6,20,true);c.setUint16(8,0x0800,true);c.setUint16(10,method,true);c.setUint16(12,dt,true);c.setUint16(14,dd,true);
+    c.setUint32(16,crc,true);c.setUint32(20,comp.length,true);c.setUint32(24,f.data.length,true);c.setUint16(28,nm.length,true);c.setUint32(42,off,true);
+    cen.push(c,nm);off+=30+nm.length+comp.length;
+    if(++n%200===0&&onProg)onProg(n);
+  }
+  const csz=cen.reduce((s,x)=>s+x.byteLength,0),e=new DataView(new ArrayBuffer(22));
+  e.setUint32(0,0x06054b50,true);e.setUint16(8,files.length,true);e.setUint16(10,files.length,true);e.setUint32(12,csz,true);e.setUint32(16,off,true);
+  return new Blob([...parts,...cen,e],{type:'application/zip'});
+}
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+async function fetchFile(head,item){
+  // 1. a nyilvános raw címről (nem fogyasztja a GitHub-keretet); 2. ha nem megy, a GitHub API-ról, a kulccsal
+  for(let k=0;k<3;k++){
+    try{const r=await fetch(`https://raw.githubusercontent.com/${OWNER}/${REPO}/${head}/${encPath(item.path)}`);
+      if(r.ok){const b=new Uint8Array(await r.arrayBuffer());if(b.length===item.size)return b;}
+      else if(r.status===404)break;}catch(e){}
+    await sleep(500*(k+1));
+  }
+  const j=await gh(`/repos/${OWNER}/${REPO}/git/blobs/${item.sha}`);
+  const bin=atob(j.content.replace(/\n/g,''));const b=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)b[i]=bin.charCodeAt(i);
+  return b;
+}
+async function backup(){
+  const btn=$('zipBtn');btn.disabled=true;const out=$('zipLog');out.innerHTML='';
+  const st=t=>{out.innerHTML=t};
+  try{
+    st('Fájllista lekérése…');
+    const ref=await gh(`/repos/${OWNER}/${REPO}/git/ref/heads/${BRANCH}`),head=ref.object.sha;
+    const commit=await gh(`/repos/${OWNER}/${REPO}/git/commits/${head}`);
+    const tr=await gh(`/repos/${OWNER}/${REPO}/git/trees/${commit.tree.sha}?recursive=1`);
+    if(tr.truncated)throw new Error('A GitHub nem adta meg a teljes fájllistát (túl nagy a repó).');
+    const items=tr.tree.filter(x=>x.type==='blob');
+    const total=items.reduce((s,x)=>s+x.size,0);
+    const files=new Array(items.length);let done=0,bytes=0,next=0;const t0=Date.now();
+    const worker=async()=>{while(next<items.length){const i=next++;const it=items[i];
+      files[i]={name:REPO+'/'+it.path,data:await fetchFile(head,it)};done++;bytes+=it.size;
+      if(done%25===0||done===items.length)st('Letöltés: '+done+' / '+items.length+' fájl ('+Math.round(bytes/total*100)+'%)…');}};
+    await Promise.all(Array.from({length:12},worker));
+    st('ZIP készítése…');
+    const zip=await makeZip(files,n=>st('ZIP készítése: '+n+' / '+files.length+'…'));
+    const d=new Date(),p2=x=>String(x).padStart(2,'0');
+    const name=REPO+'_mentes_'+d.getFullYear()+'-'+p2(d.getMonth()+1)+'-'+p2(d.getDate())+'_'+p2(d.getHours())+'-'+p2(d.getMinutes())+'.zip';
+    const a=document.createElement('a');a.href=URL.createObjectURL(zip);a.download=name;document.body.appendChild(a);a.click();a.remove();
+    setTimeout(()=>URL.revokeObjectURL(a.href),60000);
+    st('<span class="ok">✔ Kész: '+esc(name)+'</span> — '+items.length+' fájl, '+(zip.size/1048576).toFixed(1)+' MB ('+Math.round((Date.now()-t0)/1000)+' mp). A böngésző letöltései közt találod.');
+  }catch(e){st('<span class="no">✘ A mentés nem sikerült: '+esc(e.message)+'</span>');}
+  btn.disabled=false;
+}
+
 // ---------- események ----------
+$('delQ').oninput=delSearch;
+$('zipBtn').onclick=backup;
 $('loginBtn').onclick=()=>login($('tok').value);
 $('tok').onkeydown=e=>{if(e.key==='Enter')login($('tok').value)};
 $('logoutBtn').onclick=()=>{try{localStorage.removeItem('ghToken')}catch(e){}TOKEN='';location.reload();};
