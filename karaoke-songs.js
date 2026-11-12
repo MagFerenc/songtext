@@ -55,6 +55,7 @@ const KARAOKE_SONGS = [
   { id: 212, title: "Azok a szép napok (Those were the days)", artist: "", url: "Karaoke/200-Pop/212-Azok-a-szep-napok.lrc" },
   { id: 213, title: "Mama kérlek", artist: "Koncz Zsuzsa", url: "Karaoke/200-Pop/213-Mama-kerlek.lrc" },
   { id: 302, title: "Country Road", artist: "", url: "Karaoke/300-nemzetkozi/302-Country-Road.lrc" },
+  { id: 303, title: "FERNANDO", artist: "ABBA", url: "Karaoke/300-nemzetkozi/303-FERNANDO.lrc" },
   { id: 404, title: "Pedro kocsmája", artist: "", url: "Karaoke/400-mulatos/404-Pedro-kocsmaja.lrc" },
   { id: 405, title: "Love In Portofino", artist: "", url: "Karaoke/400-mulatos/405-Love-In-Portofino.lrc" },
   { id: 406, title: "Újra itt van a nagy csapat", artist: "", url: "Karaoke/400-mulatos/406-Ujra-itt-van-a-nagy-csapat.lrc" },
