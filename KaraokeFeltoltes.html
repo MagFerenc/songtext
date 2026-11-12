@@ -84,6 +84,10 @@ számot ad, beírja a <code>karaoke-songs.js</code>-be, és mindent egyben felt�
 <div class="row" style="margin-top:30px"><button class="sec" id="logoutBtn" style="margin-left:auto">Kilépés (kulcs törlése erről a gépről)</button></div>
 </div>
 
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<script src="firebase-config.js?v=202611031110"></script>
+<script src="karaoke-kedvencek.js?v=202611041110"></script>
 <script src="midi2lrc-core.js?v=1"></script>
 <script>
 // ============================================================
@@ -343,6 +347,14 @@ async function fileExists(path,ref){
 
 // ---------- törlés ----------
 let delSong=null;
+// Kedvencek (Firebase): a törölt dal a kedvencek közül is kikerül
+let favDb=null;
+try{firebase.initializeApp(firebaseConfig);favDb=firebase.database();}catch(e){favDb=null;}
+async function favsOfSong(song){ // [{key,k}] — a dalhoz (fájljához) kötött kedvencek
+  if(!favDb)throw new Error('A Firebase nem érhető el.');
+  const val=(await favDb.ref(FAV_PATH).once('value')).val()||{};
+  return Object.entries(val).filter(([key,f])=>f&&(f.url===song.url||key===favKeyOf(song))).map(([key,f])=>({key,k:f.k}));
+}
 function delSearch(){
   const q=norm($('delQ').value);$('delHits').innerHTML='';
   if(!q)return;
@@ -356,8 +368,10 @@ function delPick(s){
   delSong=s;$('delHits').innerHTML='';$('delLog').innerHTML='';
   const box=$('delSel');box.classList.remove('hidden');
   box.innerHTML='<div>Kiválasztva: <b>'+s.id+'</b> · '+esc(s.title)+(s.artist?' — '+esc(s.artist):'')+'<br><span class="small">'+esc(s.url)+'</span></div>'
-    +'<p style="margin-top:8px">Törlődik: a dal sora a <code>karaoke-songs.js</code>-ből, az <code>.lrc</code> és az <code>.akkord.lrc</code> fájl.</p>'
+    +'<p style="margin-top:8px">Törlődik: a dal sora a <code>karaoke-songs.js</code>-ből, az <code>.lrc</code> és az <code>.akkord.lrc</code> fájl, és ha kedvenc, a kedvencek közül is.</p>'
+    +'<p id="delFav" style="margin-top:4px"></p>'
     +'<div class="row"><button class="red" id="delGo">🗑 Törlés</button><button class="sec" id="delNo">Mégse</button></div>';
+  favsOfSong(s).then(fs=>{if(delSong===s&&$('delFav'))$('delFav').innerHTML=fs.length?'<span class="warn">⭐ Kedvenc ('+fs.map(f=>'K'+f.k).join(', ')+') — a kedvencek közül is kikerül.</span>':'';}).catch(()=>{});
   $('delNo').onclick=delCancel;
   $('delGo').onclick=()=>{ // második megerősítés
     box.querySelector('.row').innerHTML='<b class="warn">Biztosan törlöd a '+s.id+' számú dalt?</b><button class="red" id="delYes">Igen, törlöm</button><button class="sec" id="delNo2">Mégse</button>';
@@ -399,7 +413,12 @@ async function deleteSong(song,attempt=1){
     try{await commitFiles(head,commit.tree.sha,entries,'Karaoke: törölve '+song.id+' '+song.title+(song.artist?' — '+song.artist:'')+'\n\n'+song.url+'\n\nTörölve a KaraokeFeltoltes.html lapról.');}
     catch(e){if(e.status===422&&attempt<3){lg('Közben más is módosított — újrapróbálom…');return deleteSong(song,attempt+1);}throw e;}
     lg('<span class="ok">✔ Törölve: '+song.id+' · '+esc(song.title)+'</span>');
-    lg('Kb. 1–2 perc múlva eltűnik a karaoke vezérlőből is. Ha kedvenc volt, a kedvencek rendezésénél „a dal fájlja nem található” jelzéssel marad — ott a 🗑 gombbal kiveheted.');
+    // kedvencek közül is ki
+    try{const fs=await favsOfSong(song);
+      for(const f of fs)await favDb.ref(FAV_PATH).child(f.key).remove();
+      if(fs.length)lg('⭐ A kedvencek közül is kivéve ('+fs.map(f=>'K'+f.k).join(', ')+').');}
+    catch(e){lg('<span class="warn">⚠ A kedvencek közül nem sikerült kivenni ('+esc(e.message||String(e))+') — a Kedvencek rendezése lapon a 🗑 gombbal kiveheted.</span>');}
+    lg('Kb. 1–2 perc múlva eltűnik a karaoke vezérlőből is.');
     $('delSel').classList.add('hidden');$('delSel').innerHTML='';$('delQ').value='';delSong=null;
     await loadLists();
   }catch(e){lg('<span class="no">✘ '+esc(e.message)+'</span>');box.querySelectorAll('button').forEach(b=>b.disabled=false);}
