@@ -42,6 +42,7 @@ const KARAOKE_SONGS = [
   { id: 159, title: "Ajándék", artist: "Piramis", url: "Karaoke/150-rock/159-Ajandek.lrc" },
   { id: 160, title: "Európa", artist: "Varga Miklós", url: "Karaoke/150-rock/160-Europa.lrc" },
   { id: 161, title: "Kell még egy szó (Honfoglalás)", artist: "Kormorán", url: "Karaoke/150-rock/161-Kell-meg-egy-szo.lrc" },
+  { id: 162, title: "Koral", artist: "Melleted minden reggel", url: "Karaoke/150-rock/162-Koral.lrc" },
   { id: 201, title: "Mi kéne még", artist: "", url: "Karaoke/200-Pop/201-Mi-kene-meg.lrc" },
   { id: 202, title: "Mindig kell egy barát", artist: "", url: "Karaoke/200-Pop/202-Mindig-kell-egy-barat.lrc" },
   { id: 203, title: "Szép nyári nap", artist: "", url: "Karaoke/200-Pop/203-Szep-nyari-nap.lrc" },
