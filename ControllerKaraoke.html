@@ -242,6 +242,18 @@
     <label class="opt"><input type="checkbox" id="fullChk"> Zenei részek akkordjai is (ének nélkül)</label>
     <label class="opt"><input type="checkbox" id="favOnlyChk" checked> ⭐ Lapozás csak a kedvencek között (K1, K2, … sorrendben)</label>
 
+    <div id="headsetBox" style="margin-top:22px; padding-top:18px; border-top:1px solid #374151;">
+      <button id="headsetToggle" class="primary" style="width:100%;">🎧 Fülhallgató / média-gomb vezérlés bekapcsolása</button>
+      <div id="headsetStatus" style="margin-top:8px; font-size:.85rem; color:var(--muted);">
+        Állapot: <b id="headsetState">kikapcsolva</b>
+      </div>
+      <div class="hint">
+        Lejátszás/szünet gomb: <b>1 koppintás</b> = Start / Szünet / Folytatás ·
+        <b>2 koppintás</b> = következő dal · <b>3 koppintás</b> = előző dal.<br>
+        Ha van külön ⏭ / ⏮ gomb: következő / előző dal · ⏩ / ⏪: szöveg előrébb / későbbre (0,25 mp) · ⏹: Stop.
+      </div>
+    </div>
+
     <div class="qrSection">
       <p>Oszd meg másokkal — olvassák be a QR-kódot</p>
       <div style="font-size:.75rem; color:var(--muted); margin:-6px 0 10px;">Kattints a QR-kódra a nagyításhoz</div>
@@ -575,7 +587,7 @@
     if(!state || !state.url){ view.clear(); $('status').textContent = 'Nincs kiválasztott dal'; updateButtons(); return; }
     currentIndex = SONGS.findIndex(s => s.url === state.url);
     if(currentIndex >= 0){ songSelect.value = currentIndex; updateCategory(SONGS[currentIndex]); }
-    updateNavHints(); updateFavBtn();
+    updateNavHints(); updateFavBtn(); updateMediaMetadata();
     $('status').innerHTML = (running() ? '▶ Most szól: ' : paused() ? '⏸ Szünet: ' : 'Kiválasztva: ') + '<b></b>';
     $('status').querySelector('b').textContent = state.title || '';
     $('fullChk').checked = !!state.full;
@@ -776,6 +788,99 @@
         e.preventDefault(); stop(); break;
     }
   });
+
+  // ---- Bluetooth fülhallgató / média-gombok (mint a PDF-es vezérlőnél) ----
+  //  A böngésző csak akkor kapja meg a média-gombokat, ha "szól" valami:
+  //  ezért egy néma hangot játszunk (Web Audio + néma MP3), és a MediaSession
+  //  parancsait a karaoke vezérlésére kötjük. Gombnyomással kell bekapcsolni.
+  const silentAudio = new Audio('data:audio/mp3;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjYwLjE2LjEwMAAAAAAAAAAAAAAA/+M4wAAAAAAAAAAAAEluZm8AAAAPAAAAEAAABVgANTU1NTU1Q0NDQ0NDUFBQUFBQXl5eXl5ea2tra2tra3l5eXl5eYaGhoaGhpSUlJSUlKGhoaGhoaGvr6+vr6+8vLy8vLzKysrKysrX19fX19fX5eXl5eXl8vLy8vLy////////AAAAAExhdmM2MC4zMQAAAAAAAAAAAAAAACQCgAAAAAAAAAVYCAAeqQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA/+MYxAAAAANIAAAAAExBTUUzLjEwMFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVMQU1FMy4xMDBVVVVVVVVVVVVV/+MYxDsAAANIAAAAAFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVMQU1FMy4xMDBVVVVVVVVVVVVV/+MYxHYAAANIAAAAAFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVMQU1FMy4xMDBVVVVVVVVVVVVV/+MYxLEAAANIAAAAAFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVMQU1FMy4xMDBVVVVVVVVVVVVV/+MYxMQAAANIAAAAAFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVMQU1FMy4xMDBVVVVVVVVVVVVV/+MYxMQAAANIAAAAAFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVMQU1FMy4xMDBVVVVVVVVVVVVV/+MYxMQAAANIAAAAAFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVMQU1FMy4xMDBVVVVVVVVVVVVV/+MYxMQAAANIAAAAAFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVMQU1FMy4xMDBVVVVVVVVVVVVV/+MYxMQAAANIAAAAAFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVMQU1FMy4xMDBVVVVVVVVVVVVV/+MYxMQAAANIAAAAAFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVMQU1FMy4xMDBVVVVVVVVVVVVV/+MYxMQAAANIAAAAAFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVMQU1FMy4xMDBVVVVVVVVVVVVV/+MYxMQAAANIAAAAAFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVMQU1FMy4xMDBVVVVVVVVVVVVV/+MYxMQAAANIAAAAAFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV/+MYxMQAAANIAAAAAFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV/+MYxMQAAANIAAAAAFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV/+MYxMQAAANIAAAAAFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV');
+  silentAudio.loop = true;
+
+  let mediaReady = false;
+  function setHeadsetState(txt, color){
+    $('headsetState').textContent = txt;
+    $('headsetState').style.color = color || 'var(--muted)';
+  }
+  let flashTimer = null;
+  function flashHeadset(cmd){                 // kiírja, melyik parancs érkezett
+    setHeadsetState('✔ parancs: ' + cmd, 'var(--accent)');
+    clearTimeout(flashTimer);
+    flashTimer = setTimeout(() => setHeadsetState('AKTÍV – teszteld a gombokat', 'var(--accent)'), 1500);
+  }
+  function keepPlaying(){
+    silentAudio.play().catch(() => {});
+    if('mediaSession' in navigator) navigator.mediaSession.playbackState = 'playing';
+  }
+
+  // Lejátszás/szünet gomb koppintás-számlálással (sok fülesen csak ez az egy gomb van):
+  //   1 = Start / Szünet / Folytatás, 2 = következő dal, 3 = előző dal.
+  //  Itt (a PDF-essel ellentétben) megvárjuk a sorozat végét, hogy dupla
+  //  koppintásnál ne induljon el és álljon meg a dal a nézőknél.
+  let pressCount = 0, pressTimer = null;
+  const PRESS_WINDOW = 400;                   // ms — ezen belül egy sorozatnak számít
+  function onHeadsetButton(){
+    keepPlaying();
+    pressCount++;
+    clearTimeout(pressTimer);
+    pressTimer = setTimeout(() => {
+      if(pressCount === 1){ flashHeadset(running() ? 'szünet' : paused() ? 'folytatás' : 'start'); toggle(); }
+      else if(pressCount === 2){ flashHeadset('következő dal'); $('nextBtn').click(); }
+      else { flashHeadset('előző dal'); $('prevBtn').click(); }
+      pressCount = 0;
+    }, PRESS_WINDOW);
+  }
+
+  // Hangfókusz tartása folyamatos, gyakorlatilag néma jellel (Androidon megbízhatóbb)
+  let audioCtx = null;
+  function startKeepAlive(){
+    if(!audioCtx){
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if(!AC) return Promise.reject(new Error('NoWebAudio'));
+      audioCtx = new AC();
+      const osc = audioCtx.createOscillator(), gain = audioCtx.createGain();
+      gain.gain.value = 0.0008; osc.frequency.value = 50; osc.type = 'sine';
+      osc.connect(gain).connect(audioCtx.destination);
+      osc.start();
+    }
+    return audioCtx.resume();
+  }
+
+  function updateMediaMetadata(){
+    if(!mediaReady || !('mediaSession' in navigator)) return;
+    const song = currentIndex >= 0 ? SONGS[currentIndex] : null;
+    navigator.mediaSession.metadata = new MediaMetadata({
+      title:  song ? fullTitle(song) : 'Karaoke vezérlő',
+      artist: 'Mag Ferenc – karaoke',
+      album:  song ? song.id + '. dal' : ''
+    });
+  }
+
+  function enableHeadsetControls(){
+    if(!('mediaSession' in navigator)){ setHeadsetState('a böngésző nem támogatja', '#f59e0b'); return; }
+    silentAudio.volume = 1;
+    silentAudio.play().catch(() => {});
+    startKeepAlive().then(() => {
+      mediaReady = true;
+      const ms = navigator.mediaSession;
+      try { ms.setPositionState({ duration: 3600, position: 0, playbackRate: 1 }); } catch(e){}
+      ms.playbackState = 'playing';
+      const set = (a, f) => { try { ms.setActionHandler(a, f); } catch(e){} };
+      set('play',  onHeadsetButton);
+      set('pause', onHeadsetButton);
+      set('nexttrack',     () => { keepPlaying(); flashHeadset('következő dal'); $('nextBtn').click(); });
+      set('previoustrack', () => { keepPlaying(); flashHeadset('előző dal');     $('prevBtn').click(); });
+      set('seekforward',   () => { keepPlaying(); flashHeadset('szöveg előrébb');  nudge(250); });
+      set('seekbackward',  () => { keepPlaying(); flashHeadset('szöveg későbbre'); nudge(-250); });
+      set('stop',          () => { keepPlaying(); flashHeadset('stop'); stop(); });
+      updateMediaMetadata();
+      setHeadsetState('AKTÍV – teszteld a gombokat', 'var(--accent)');
+      $('headsetToggle').textContent = '🎧 Vezérlés újraindítása';
+    }).catch(err => {
+      mediaReady = false;
+      setHeadsetState('nem indult el (' + ((err && err.name) || err) + ') – nyomd meg még egyszer', '#f59e0b');
+    });
+  }
+  $('headsetToggle').addEventListener('click', enableHeadsetControls);
 
   // ---- MIDI Start/Stop (pl. arranger-szinti vagy MIDI-lejátszó USB-n) ----
   let midiAccess = null;
