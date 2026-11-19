@@ -69,6 +69,7 @@ const KARAOKE_SONGS = [
   { id: 454, title: "Szállj, szállj madár", artist: "Solymos Toni", url: "Karaoke/450-mulatos-fox/454-Szallj-szallj-madar.lrc" },
   { id: 501, title: "A csitári hegyek alatt", artist: "", url: "Karaoke/500-nepi/501-A-csitari-hegyek-alatt.lrc" },
   { id: 502, title: "Most múlik pontosan", artist: "Csík zenekar", url: "Karaoke/500-nepi/502-Most-mulik-pontosan.lrc" },
+  { id: 604, title: "Hopp te Zsiga", artist: "", url: "Karaoke/400-mulatos/604-Hopp-te-Zsiga.lrc" },
   { id: 608, title: "Elment a Lidi néni a vásárba", artist: "", url: "Karaoke/600-cigany/608-Elment-a-Lidi-neni-a-vasarba.lrc" },
 
   // ---- Összes (válogatott magyar karaoke, az eredeti mappaszerkezetben) — 6 jegyű számok ----
