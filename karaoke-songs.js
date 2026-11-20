@@ -30,6 +30,7 @@
 // ============================================================
 const KARAOKE_SONGS = [
   // ---- A PDF-es dalok karaoke változata: ugyanaz a szám és mappa, mint a Dalok/ alatt ----
+  { id: 43, title: "induló", artist: "Erdely", url: "Karaoke/400-mulatos/43-indulo.lrc" },
   { id: 101, title: "Boldog születésnapot", artist: "Halász Judit", url: "Karaoke/100-szulinap/101-Boldog-szuletesnapot.lrc" },
   { id: 151, title: "Régi csibészek", artist: "Omega", url: "Karaoke/150-rock/151-Regi-csibeszek.lrc" },
   { id: 152, title: "Gyöngyhajú lány", artist: "Omega", url: "Karaoke/150-rock/152-Gyongyhaju-lany.lrc" },
