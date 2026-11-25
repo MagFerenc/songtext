@@ -464,9 +464,10 @@ function moveSel(d){
     if(j<0||j>=flat.length)return;
     pushUndo();c.t=flat[j].t;
   }else{
-    const [from,to]=gapRange(p.g,L.ends),beat=karaokeBar(lrc.meta)/(parseInt((lrc.meta.meter||'4/4'),10)||4);
-    const t=c.t+d*beat;if(t<from-0.01||t>=to)return;
-    pushUndo();c.t=t;
+    // szöveg nélküli részből: előre = a következő sor első szótagja, hátra = az előző sor utolsó szótagja
+    const l=d>0?lines[p.g]:lines[p.g-1];
+    if(!l)return;
+    pushUndo();c.t=d>0?l.syl[0].t:l.syl[l.syl.length-1].t;
   }
   changed();
 }
