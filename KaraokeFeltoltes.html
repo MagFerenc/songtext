@@ -368,7 +368,7 @@ function delPick(s){
   delSong=s;$('delHits').innerHTML='';$('delLog').innerHTML='';
   const box=$('delSel');box.classList.remove('hidden');
   box.innerHTML='<div>Kiválasztva: <b>'+s.id+'</b> · '+esc(s.title)+(s.artist?' — '+esc(s.artist):'')+'<br><span class="small">'+esc(s.url)+'</span></div>'
-    +'<p style="margin-top:8px">Törlődik: a dal sora a <code>karaoke-songs.js</code>-ből, az <code>.lrc</code> és az <code>.akkord.lrc</code> fájl, és ha kedvenc, a kedvencek közül is.</p>'
+    +'<p style="margin-top:8px">Törlődik: a dal sora a <code>karaoke-songs.js</code>-ből, az <code>.lrc</code>, az <code>.akkord.lrc</code> (és ha van, az <code>.akkord.lrc.bak</code>) fájl, és ha kedvenc, a kedvencek közül is.</p>'
     +'<p id="delFav" style="margin-top:4px"></p>'
     +'<div class="row"><button class="red" id="delGo">🗑 Törlés</button><button class="sec" id="delNo">Mégse</button></div>';
   favsOfSong(s).then(fs=>{if(delSong===s&&$('delFav'))$('delFav').innerHTML=fs.length?'<span class="warn">⭐ Kedvenc ('+fs.map(f=>'K'+f.k).join(', ')+') — a kedvencek közül is kikerül.</span>':'';}).catch(()=>{});
@@ -410,6 +410,7 @@ async function deleteSong(song,attempt=1){
     const hasLrc=await fileExists(song.url,head),hasCh=chord!==song.url&&await fileExists(chord,head);
     if(hasLrc)entries.push({path:song.url,del:true});else lg('<span class="warn">Az .lrc fájl már nem volt meg, csak a lista sora törlődik.</span>');
     if(hasCh)entries.push({path:chord,del:true});
+    if(chord!==song.url&&await fileExists(chord+'.bak',head))entries.push({path:chord+'.bak',del:true});   // az akkord szerkesztő mentése az eredetiről
     try{await commitFiles(head,commit.tree.sha,entries,'Karaoke: törölve '+song.id+' '+song.title+(song.artist?' — '+song.artist:'')+'\n\n'+song.url+'\n\nTörölve a KaraokeFeltoltes.html lapról.');}
     catch(e){if(e.status===422&&attempt<3){lg('Közben más is módosított — újrapróbálom…');return deleteSong(song,attempt+1);}throw e;}
     lg('<span class="ok">✔ Törölve: '+song.id+' · '+esc(song.title)+'</span>');

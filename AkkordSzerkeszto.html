@@ -64,6 +64,9 @@ button.tg.on{background:#ffcc00;color:#111}
 .ch.sel{background:#ffcc00;color:#111}
 .ch.ghost{color:#7a6c2c;font-weight:400;font-style:italic}
 .ch.nc{color:#c88}
+.old{color:#6cb6ff;font-size:.72em;font-weight:400;align-self:flex-end;white-space:nowrap;opacity:.9}
+.old::before{content:'(';}.old::after{content:')';}
+.ch.new{text-decoration:underline dotted #6cb6ff;text-underline-offset:3px}
 .gap{break-inside:avoid;margin:.15em 0 .55em;padding:.15em .45em;border:1px dashed #3a3a3a;border-radius:6px;font-size:.82em;color:#888;display:flex;flex-wrap:wrap;gap:.25em .7em;align-items:baseline}
 .gap .lbl{color:#666;font-size:.85em}
 .gap .ch small{color:#888;font-weight:400;font-size:.72em;margin-left:.25em}
@@ -145,6 +148,10 @@ button.tg.on{background:#ffcc00;color:#111}
 
     <h3>Az egész dal</h3>
     <div class="row"><button id="undoBtn" disabled title="Ctrl+Z">↶ Visszavonás</button><button id="revertBtn" disabled>Betöltött állapot vissza</button></div>
+    <div class="row" style="margin-top:4px">Régi akkord kiírása mellé
+      <select id="cmpSel" style="font-size:15px;background:#222;color:#fff;border:1px solid #444;border-radius:5px;padding:5px">
+        <option value="saved">a mentés előttiből</option><option value="bak">az eredeti generáltból (.bak)</option><option value="off">ne írja ki</option></select></div>
+    <div class="row"><button id="bakBtn" disabled title="az összes akkordot visszaállítja az eredeti, generált változatra (mentésig nem végleges)">Eredeti (generált) akkordok vissza</button></div>
     <div class="row"><button id="allDown">Minden akkord − fél hang</button><button id="allUp">+ fél hang</button></div>
     <div class="row"><button class="red" id="clearAll">Összes akkord törlése (tiszta lap)</button></div>
 
@@ -157,6 +164,7 @@ button.tg.on{background:#ffcc00;color:#111}
       <kbd>Delete</kbd> törlés · <kbd>Ctrl</kbd>+<kbd>Z</kbd> visszavonás · <kbd>Ctrl</kbd>+<kbd>S</kbd> mentés<br><br>
       Jelölés: magyar — <b>H</b> = a „H” akkord, <b>B</b> = a „B” (angolul Bb). Moll: <b>Am</b>, szeptim: <b>G7</b>, kereszt/bé: <b>F#</b> vagy <b>Fisz</b>, <b>Eb</b> vagy <b>Esz</b>.
       Halvány dőlt akkord = az előző sorból még szóló akkord (rákattintva ide is beírható).<br><br>
+      <span style="color:#6cb6ff">(kék, zárójeles)</span> = ami ott régen volt; <u style="text-decoration:underline dotted #6cb6ff">pöttyös aláhúzás</u> = új akkord olyan helyen, ahol régen nem volt.<br><br>
       Kilépés: <a href="#" id="logout">kulcs törlése erről a gépről</a>
     </div>
   </div>
@@ -197,7 +205,13 @@ const unb64=s=>new TextDecoder().decode(Uint8Array.from(atob(s.replace(/\s/g,'')
 let KS=[];                 // a karaoke dalok listája
 let song=null,lrc=null,lines=[],songLen=0;
 let CH=[];                 // akkordok: {id, t, c (angol jelöléssel)}
-let chPath='',chSha=null,chMeta={},origSer='';
+let chPath='',chSha=null,chMeta={},origSer='',origTxt='';
+let ORIG=[];               // a betöltéskori (utoljára mentett) akkordok — ehhez hasonlít
+let BAK=null,bakSha=null;  // az eredeti, generált akkordok (.akkord.lrc.bak), ha már van
+let cmpMode='saved';       // a régi akkordok kiírása: 'saved' = mentés előtti, 'bak' = eredeti, 'off'
+try{cmpMode=localStorage.getItem('akkordCmp')||'saved'}catch(e){}
+const bakPath=()=>chPath+'.bak';
+const chordsOf=txt=>txt?parseLrc(txt).lines.map(l=>({t:l.t,c:l.syl.map(x=>x.s).join('').trim()})).filter(x=>x.c):[];
 let key=null,selId=null,nextId=1,undo=[],typing=false;
 
 // ---------- belépés ----------
@@ -284,13 +298,17 @@ async function openSong(s){
     const path=chordUrlFor(s.url);let sha=null,ctxt='';
     try{const j=await gh(`/repos/${OWNER}/${REPO}/contents/${encPath(path)}?ref=${encodeURIComponent(BRANCH)}`);sha=j.sha;ctxt=unb64(j.content);}
     catch(e){if(e.status!==404)throw e;}
+    let bsha=null,btxt='';
+    try{const j=await gh(`/repos/${OWNER}/${REPO}/contents/${encPath(path+'.bak')}?ref=${encodeURIComponent(BRANCH)}`);bsha=j.sha;btxt=unb64(j.content);}
+    catch(e){if(e.status!==404)throw e;}
+    BAK=bsha?chordsOf(btxt):null;bakSha=bsha;origTxt=ctxt;
     song=s;lrc=parseLrc(txt);chPath=path;chSha=sha;
     lines=lrc.lines.filter(l=>l.syl.map(x=>x.s).join('').trim());
     const cp=ctxt?parseLrc(ctxt):{meta:{},lines:[]};chMeta=cp.meta;
     CH=cp.lines.map(l=>({id:nextId++,t:l.t,c:l.syl.map(x=>x.s).join('').trim()})).filter(x=>x.c);
     songLen=Math.max(lrc.length||0,...CH.map(c=>c.t+2),0);
     key=hnDetectKey(sorted(),songLen);
-    origSer=ser();undo=[];
+    origSer=ser();undo=[];ORIG=CH.map(c=>({t:c.t,c:c.c}));
     history.replaceState(null,'','#'+encodeURIComponent(s.url));
     document.title='🎸 '+s.id+' '+s.title+' — akkordok';
     $('saveMsg').textContent='';
@@ -327,11 +345,12 @@ function parseHu(s){
 function shiftChord(c,d,k){const p=hnParse(c);if(!p)return c;p.r+=d;if(p.bass!==null)p.bass+=d;return eng(p,k);}
 
 // ---------- akkord ↔ szótag hozzárendelés ----------
-const sorted=()=>[...CH].sort((a,b)=>a.t-b.t||a.id-b.id);
+const sortList=L=>[...L].sort((a,b)=>a.t-b.t||(a.id||0)-(b.id||0));
+const sorted=()=>sortList(CH);
 const lineEnds=()=>lines.map((l,i)=>Math.min(lines[i+1]?lines[i+1].t-0.3:Infinity,l.syl[l.syl.length-1].t+2));
-function layout(){
+function layout(list){
   const ends=lineEnds(),onSyl=lines.map(l=>l.syl.map(()=>[])),gaps=lines.map(()=>[]).concat([[]]),pos={};
-  for(const c of sorted()){
+  for(const c of sortList(list||CH)){
     let i=-1;for(let k=0;k<lines.length;k++){if(c.t>=lines[k].t-0.3)i=k;else break;}
     if(i>=0&&c.t<ends[i]){
       const sy=lines[i].syl;let k=0;for(let j=0;j<sy.length;j++){if(sy[j].t<=c.t+0.15)k=j;else break;}
@@ -356,12 +375,23 @@ function render(){
   if(!song)return;
   if(!lines.length){box.innerHTML='<div id="empty">Ebben a dalban nincs időzített szöveg.</div>';return;}
   const {ends,onSyl,gaps}=layout();
+  const base=cmpMode==='bak'?BAK:cmpMode==='saved'?ORIG:null,B=base?layout(base):null;
+  const names=a=>a.map(c=>c.c).join(' ');
+  // eltér-e az itteni akkord a régitől? → a régi kicsiben, más színnel
+  const oldMark=(cur,old,withTime)=>{
+    if(!B||names(cur)===names(old)&&(!withTime||old.every((o,j)=>Math.abs(o.t-cur[j].t)<0.05)))return null;
+    if(!old.length)return 'new';
+    const o=document.createElement('span');o.className='old';o.title=cmpMode==='bak'?'az eredeti (generált) akkord itt':'a mentés előtti akkord itt';
+    o.textContent=old.map(c=>disp(c.c)+(withTime?' '+fmtS(c.t):'')).join(' ');return o;
+  };
   const gapRow=g=>{
     const [from,to]=gapRange(g,ends),cs=gaps[g];
-    if(!cs.length&&to-from<2.5)return;
+    if(!cs.length&&(!B||!B.gaps[g].length)&&to-from<2.5)return;
     const d=document.createElement('div');d.className='gap';
     d.innerHTML='<span class="lbl">'+(g===0?'♪ előjáték':g===lines.length?'♪ vége':'♪ közjáték')+' '+fmtS(from)+'</span>';
-    cs.forEach(c=>d.appendChild(chip(c,true)));
+    const m=B?oldMark(cs,B.gaps[g],true):null;
+    cs.forEach(c=>{const e=chip(c,true);if(m==='new')e.classList.add('new');d.appendChild(e);});
+    if(m&&m!=='new'){const o=m;o.textContent='régi: '+o.textContent;d.appendChild(o);}
     const a=document.createElement('span');a.className='add';a.textContent='+';a.title='új akkord ide';a.dataset.gap=g;d.appendChild(a);
     box.appendChild(d);
   };
@@ -373,7 +403,9 @@ function render(){
       if(!wd){wd=document.createElement('span');wd.className='wd';d.appendChild(wd);}
       const sy=document.createElement('span');sy.className='sy';sy.dataset.i=i;sy.dataset.k=k;
       const cs=document.createElement('span');cs.className='cs';
-      onSyl[i][k].forEach(c=>cs.appendChild(chip(c,false)));
+      const m=B?oldMark(onSyl[i][k],B.onSyl[i][k],false):null;
+      onSyl[i][k].forEach(c=>{const e=chip(c,false);if(m==='new')e.classList.add('new');cs.appendChild(e);});
+      if(m&&m!=='new')cs.appendChild(m);
       if(k===0&&!onSyl[i][0].length){const a=activeAt(x.t+0.15);
         if(a&&a.c!=='N.C.'){const g=document.createElement('span');g.className='ch ghost';g.textContent=disp(a.c);g.title='még az előző akkord szól — kattints, ha ide is be akarod írni';cs.appendChild(g);}}
       const tx=document.createElement('span');tx.className='tx';tx.textContent=x.s.replace(/\s+$/,'');
@@ -415,12 +447,15 @@ function refresh(){
   $('saveBtn').disabled=!song||!n;
   $('saveBtn').textContent=n?'💾 Mentés a GitHubra ('+n+' változás)':'💾 Mentés a GitHubra';
   $('undoBtn').disabled=!undo.length;$('revertBtn').disabled=!n;
+  $('bakBtn').disabled=!BAK;$('cmpSel').value=cmpMode;
+  $('cmpSel').options[1].disabled=!BAK;$('cmpSel').options[1].textContent=BAK?'az eredeti generáltból (.bak)':'az eredeti generáltból (még nincs .bak)';
   let src=!chSha?'<span class="warn">még nincs akkordfájl</span>'
     :/ferenc|kézzel/i.test(chMeta.by||'')?'<span class="ok">kézzel javított</span>'
     :/becsült/i.test(chMeta.by||'')?'<span class="warn">becsült (a MIDI hangjaiból)</span>'
     :/xf|midi/i.test(chMeta.by||'')?'a MIDI fájlból':esc(chMeta.by||'?');
   if(song)$('songInfo').innerHTML='<b>'+song.id+' · '+esc(song.title)+'</b>'+(song.artist?'<br>'+esc(song.artist):'')
     +'<br><span class="mut">'+esc(folderOf(song))+'</span><br>Akkordok: '+src+' · '+CH.length+' db'
+    +(BAK?'<br><span class="mut">Az eredeti generált akkordok megvannak (.bak)</span>':'')
     +'<br>Hangnem (becslés): <b style="font-size:17px">'+hnKeyName(key)+'</b>';
 }
 
@@ -491,11 +526,22 @@ async function save(force=false){
   try{
     if(force){try{chSha=(await gh(`/repos/${OWNER}/${REPO}/contents/${encPath(chPath)}?ref=${encodeURIComponent(BRANCH)}`)).sha;}catch(e){if(e.status===404)chSha=null;else throw e;}}
     const n=diffCount();
+    // Az első kézi mentés előtt az eredeti (generált) akkordfájl megmarad .bak néven — később is megnézhető / visszaállítható
+    if(!bakSha&&chSha&&origTxt&&!/ferenc|kézzel/i.test(chMeta.by||'')){
+      $('saveMsg').innerHTML='Az eredeti akkordok mentése (.bak)…';
+      try{const rb=await gh(`/repos/${OWNER}/${REPO}/contents/${encPath(bakPath())}`,{method:'PUT',body:JSON.stringify({
+          message:'Akkordok: '+song.id+' '+song.title+' — az eredeti (generált) akkordok megőrzése\n\n'+bakPath(),content:b64(origTxt),branch:BRANCH})});
+        bakSha=rb.content.sha;}
+      catch(e){if(e.status!==422)throw e;bakSha='?';}   // 422: már van ilyen .bak — az marad
+      BAK=chordsOf(origTxt);
+      $('saveMsg').innerHTML='Mentés…';
+    }
     const body={message:'Akkordok: '+song.id+' '+song.title+' — kézzel javítva ('+n+' változás)\n\n'+chPath+'\n\nMentve az AkkordSzerkeszto.html lapról.',
       content:b64(fileText()),branch:BRANCH};
     if(chSha)body.sha=chSha;
     const r=await gh(`/repos/${OWNER}/${REPO}/contents/${encPath(chPath)}`,{method:'PUT',body:JSON.stringify(body)});
     chSha=r.content.sha;chMeta={ti:chMeta.ti,by:'Ferenc — kézzel javított akkordok'};origSer=ser();
+    origTxt=fileText();ORIG=CH.map(c=>({t:c.t,c:c.c}));render();if(selId)select(selId,false);
     $('saveMsg').innerHTML='<span class="ok">✔ Elmentve ('+new Date().toLocaleTimeString('hu-HU',{hour:'2-digit',minute:'2-digit'})+').</span>\nKb. 1–2 perc múlva a karaoke vezérlő már ezt használja (ha nyitva van, töltsd újra a dalt).';
   }catch(e){
     if(e.status===409||e.status===422){
@@ -557,6 +603,10 @@ $('undoBtn').onclick=doUndo;
 $('revertBtn').onclick=()=>{if(!confirm('Visszaállítod a betöltéskori akkordokat? (A mostani módosítások elvesznek.)'))return;
   pushUndo();CH=origSer?origSer.split('\n').map(x=>{const [t,c]=x.split('|');return{id:nextId++,t:parseLrcTime(t),c};}):[];
   key=hnDetectKey(sorted(),songLen);selId=null;changed();};
+$('cmpSel').onchange=()=>{cmpMode=$('cmpSel').value;try{localStorage.setItem('akkordCmp',cmpMode)}catch(e){}render();if(selId)select(selId,false);};
+$('bakBtn').onclick=()=>{if(!BAK)return;
+  if(!confirm('Visszaállítod a dal összes akkordját az eredeti, generált változatra?\n(Mentésig semmi nem változik a GitHubon, és visszavonható.)'))return;
+  pushUndo();CH=BAK.map(c=>({id:nextId++,t:c.t,c:c.c}));key=hnDetectKey(sorted(),songLen);selId=null;changed();};
 $('allDown').onclick=()=>transposeAll(-1);$('allUp').onclick=()=>transposeAll(1);
 $('clearAll').onclick=()=>{if(!CH.length)return;
   if(!confirm('Törlöd a dal ÖSSZES akkordját, hogy elölről, kézzel írd be?\n(Mentésig semmi nem változik a GitHubon, és visszavonható.)'))return;
