@@ -22,7 +22,7 @@ const HN_KEY_MIN = ['c', 'cisz', 'd', 'esz', 'e', 'f', 'fisz', 'g', 'gisz', 'a',
 
 // "F#m7" → { r: 6, q: 'm7', bass: null } ; "C/G" → bass: 7 ; nem akkord → null
 function hnParse(name){
-  const m = /^([A-H])(#|b|is|es|s)?(.*?)(?:\/([A-H])(#|b)?)?$/.exec((name || '').trim());
+  const m = /^([A-H])(#|b|is|es|s(?!us))?(.*?)(?:\/([A-H])(#|b)?)?$/.exec((name || '').trim());   // "Dsus4" ≠ "Ds"+"us4"
   if(!m || !(m[1] in HN_IN)) return null;
   const acc = s => s === '#' || s === 'is' ? 1 : s === 'b' || s === 'es' || s === 's' ? -1 : 0;
   // angol forrás: a "B" = H; a "Bb" = magyar B
