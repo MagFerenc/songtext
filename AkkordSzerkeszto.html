@@ -515,8 +515,11 @@ function refresh(){
 const ser=()=>sorted().map(c=>fmt(c.t)+'|'+c.c).join('\n');
 function diffCount(){
   if(!song)return 0;
+  // egy átírt akkord 1 változás (nem "1 törölt + 1 új"); áttolás / törlés / új akkord szintén 1-1
   const a=origSer?origSer.split('\n'):[],b=ser()?ser().split('\n'):[],sa=new Set(a),sb=new Set(b);
-  return a.filter(x=>!sb.has(x)).length+b.filter(x=>!sa.has(x)).length;
+  const ra=a.filter(x=>!sb.has(x)),rb=b.filter(x=>!sa.has(x)),tm=x=>x.split('|')[0];
+  const tb=new Set(rb.map(tm)),same=ra.filter(x=>tb.has(tm(x))).length;   // ugyanott, más akkord
+  return same+Math.max(ra.length-same,rb.length-same);
 }
 function pushUndo(){undo.push(JSON.stringify({CH,key}));if(undo.length>300)undo.shift();}
 function changed(rerender=true){if(rerender){render();if(selId)select(selId,false);}showSel();refresh();}
