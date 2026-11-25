@@ -6,6 +6,7 @@
 - 📱 **[Karaoke kijelző](https://magferenc.github.io/songtext/viewerKaraoke.html)** — a nézők ezen látják a futó szöveget
 - ⭐ **[Kedvencek rendezése](https://magferenc.github.io/songtext/KedvencekKaraoke.html)** — a karaoke kedvencek K számai, sorrendje, mentése
 - ⬆️ **[Karaoke dal feltöltése](https://magferenc.github.io/songtext/KaraokeFeltoltes.html)** — MIDI behúzása → LRC + akkord + szám + lista, egy kattintással a GitHubra
+- 🎸 **[Akkordok szerkesztése](https://magferenc.github.io/songtext/AkkordSzerkeszto.html)** — a karaoke dalok akkordjainak javítása / saját akkordok beírása, mentés a GitHubra
 - 🛠️ **[MIDI → LRC átalakító](https://magferenc.github.io/songtext/midi2lrc.html)** — karaoke-MIDI-ből időzített dalszöveg
 
 ---

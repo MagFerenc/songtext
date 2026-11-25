@@ -263,6 +263,7 @@
 
     <div class="tools">⭐ <a href="KedvencekKaraoke.html" target="_blank">Kedvencek rendezése</a> (számok, sorrend, mentés)</div>
     <div class="tools">⬆️ <a href="KaraokeFeltoltes.html" target="_blank">Karaoke dal feltöltése</a> (MIDI behúzása → egyből a GitHubra és a listába)</div>
+    <div class="tools">🎸 <a id="chEditLink" href="AkkordSzerkeszto.html" target="_blank">Akkordok szerkesztése</a> (a betöltött dalé — javítás, saját akkordok)</div>
     <div class="tools">🛠️ <a href="midi2lrc.html" target="_blank">MIDI → LRC átalakító</a> (új karaoke dal készítése)</div>
   </div>
 
@@ -602,7 +603,7 @@
         if(!full) ({ lrc, chords: ch } = compressKaraoke(lrc, ch, gap));   // szöveg nélküli részek lerövidítve
         $('previewMsg').textContent = lrc.lines.length ? '' : 'A dalszöveg üres.';
         chordList = ch; songLength = lrc.length; lrcMeta = lrc.meta || {};
-        view.load(lrc); loadedUrl = url; applyKey(); updateButtons();
+        view.load(lrc); loadedUrl = url; $('chEditLink').href = 'AkkordSzerkeszto.html#' + encodeURIComponent(url); applyKey(); updateButtons();
       }).catch(e => {
         if(my !== loadToken) return;
         $('previewMsg').textContent = 'Az LRC fájlt nem sikerült betölteni: ' + url;

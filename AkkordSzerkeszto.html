@@ -1,0 +1,518 @@
+<!DOCTYPE html><html lang="hu"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Akkordok szerkesztése</title><style>
+:root{--fs:20px}
+*{box-sizing:border-box}
+body{margin:0;font-family:system-ui,sans-serif;background:#111;color:#ddd}
+a{color:#7cf}
+input[type=text],input[type=password]{background:#222;color:#fff;border:1px solid #444;border-radius:5px;padding:6px 8px;font-size:15px}
+button{font-size:14px;padding:6px 12px;border:0;border-radius:6px;background:#333;color:#ddd;cursor:pointer}
+button:hover{background:#444}
+button.y{background:#ffcc00;color:#111}button.y:hover{background:#ffd633}
+button.red{background:#a33;color:#fff}
+button:disabled{opacity:.4;cursor:default}
+.ok{color:#5c5}.no{color:#e55}.warn{color:#fb4}.mut{color:#888}
+.hidden{display:none!important}
+code{background:#222;padding:1px 5px;border-radius:4px}
+
+header{padding:10px 16px;border-bottom:1px solid #333;display:flex;gap:10px;align-items:center;flex-wrap:wrap;background:#151515;position:sticky;top:0;z-index:5}
+header h1{font-size:19px;margin:0 10px 0 0;white-space:nowrap}
+#srchBox{position:relative;flex:1;max-width:560px;min-width:260px}
+#q{width:100%}
+#hits{position:absolute;left:0;right:0;top:100%;background:#1c1c1c;border:1px solid #444;border-radius:0 0 8px 8px;max-height:60vh;overflow:auto;z-index:10}
+#hits div{padding:6px 10px;border-bottom:1px solid #2a2a2a;cursor:pointer;font-size:14px}
+#hits div:hover,#hits div.act{background:#2a2a2a}
+#hits small{color:#888}
+#loginBox{padding:24px 16px;max-width:760px}
+#loginBox p{color:#999}
+
+#wrap{display:flex;align-items:flex-start}
+#song{flex:1;min-width:0;padding:14px 20px 120px;font-size:var(--fs);columns:24em auto;column-gap:40px;column-rule:1px solid #262626}
+#empty{padding:40px 20px;color:#888;font-size:16px;line-height:1.6}
+#side{width:310px;flex:none;position:sticky;top:57px;height:calc(100vh - 57px);overflow:auto;border-left:1px solid #333;padding:12px 14px 30px;background:#161616;font-size:14px}
+#side h3{font-size:14px;color:#ffcc00;margin:16px 0 6px;text-transform:uppercase;letter-spacing:.04em}
+#side .row{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:6px}
+
+/* dal: sorok, szótagok, fölöttük az akkordok */
+.ln{break-inside:avoid;margin:0 0 .25em;line-height:1.15}
+.wd{white-space:nowrap}
+.sy{display:inline-flex;flex-direction:column;vertical-align:bottom;cursor:pointer;border-radius:4px}
+.sy:hover{background:#262626}
+.sy .tx{white-space:pre}
+.sy .cs{min-height:1.25em;font-size:.82em;white-space:nowrap;display:flex;gap:.3em}
+.sy:hover .cs:empty::before{content:'+';color:#666;font-weight:700}
+.ch{color:#ffcc00;font-weight:700;padding:0 .18em;border-radius:4px;cursor:pointer;line-height:1.2}
+.ch:hover{outline:1px solid #ffcc00}
+.ch.sel{background:#ffcc00;color:#111}
+.ch.ghost{color:#7a6c2c;font-weight:400;font-style:italic}
+.ch.nc{color:#c88}
+.gap{break-inside:avoid;margin:.15em 0 .55em;padding:.15em .45em;border:1px dashed #3a3a3a;border-radius:6px;font-size:.82em;color:#888;display:flex;flex-wrap:wrap;gap:.25em .7em;align-items:baseline}
+.gap .lbl{color:#666;font-size:.85em}
+.gap .ch small{color:#888;font-weight:400;font-size:.72em;margin-left:.25em}
+.gap .ch.sel small{color:#333}
+.gap .add{color:#666;cursor:pointer;font-weight:700;padding:0 .3em;border-radius:4px}
+.gap .add:hover{color:#ffcc00;background:#262626}
+
+/* oldalsáv: kiválasztott akkord */
+#chIn{font-size:26px;font-weight:700;width:100%;text-align:center;color:#ffcc00}
+#chIn.bad{border-color:#e55;color:#e55}
+.grid{display:grid;grid-template-columns:repeat(6,1fr);gap:4px;margin:6px 0}
+.grid.q{grid-template-columns:repeat(4,1fr)}
+.grid button{padding:6px 0;font-size:14px}
+.grid button.on{background:#ffcc00;color:#111}
+#ctx{color:#aaa;font-size:13px;margin:4px 0 8px;min-height:1.2em}
+#saveMsg{white-space:pre-wrap;margin-top:8px}
+#help{color:#888;font-size:12.5px;line-height:1.55}
+#help kbd{background:#2a2a2a;border:1px solid #444;border-radius:3px;padding:0 4px;font-size:11.5px;color:#ccc}
+#songInfo{line-height:1.5}
+#songInfo b{color:#fff;font-size:15px}
+</style></head><body>
+
+<header>
+  <h1>🎸 Akkordok szerkesztése</h1>
+  <div id="srchBox" class="hidden">
+    <input type="text" id="q" placeholder="Dal keresése: szám, cím vagy előadó (üresen: a PDF-es dalok)" autocomplete="off">
+    <div id="hits" class="hidden"></div>
+  </div>
+  <button id="prevSong" class="hidden" title="előző dal a listában">◀ előző dal</button>
+  <button id="nextSong" class="hidden" title="következő dal a listában">következő dal ▶</button>
+  <span style="margin-left:auto"></span>
+  <button id="fsDown" title="kisebb betű">A−</button><button id="fsUp" title="nagyobb betű">A+</button>
+</header>
+
+<div id="loginBox">
+  <p>Ugyanazzal a GitHub kulccsal kell belépni, mint a <a href="KaraokeFeltoltes.html">Karaoke dal feltöltése</a> lapon
+  (ha ott már beléptél ezen a gépen, itt magától belép).</p>
+  <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+    <input type="password" id="tok" placeholder="GitHub kulcs (token)" style="flex:1;min-width:260px" autocomplete="off">
+    <label style="font-size:14px;color:#ccc"><input type="checkbox" id="remember" checked> megjegyzés ezen a gépen</label>
+    <button class="y" id="loginBtn">Belépés</button>
+  </div>
+  <p id="loginMsg"></p>
+</div>
+
+<div id="wrap" class="hidden">
+  <div id="song"><div id="empty">Keress rá egy dalra fent (szám, cím vagy előadó).<br>
+    Utána: <b>kattints egy akkordra</b> a javításhoz, vagy <b>egy szótagra</b>, hogy oda új akkord kerüljön.
+    A végén <b>💾 Mentés a GitHubra</b> — a karaoke vezérlő legközelebb már ezt használja.</div></div>
+  <div id="side">
+    <div id="songInfo" class="mut">Nincs dal kiválasztva.</div>
+
+    <h3>Kiválasztott akkord</h3>
+    <div id="selBox" class="mut">Kattints egy akkordra vagy egy szótagra.</div>
+    <div id="selEd" class="hidden">
+      <input type="text" id="chIn" autocomplete="off" spellcheck="false" title="Írd be magyar jelöléssel: C, Dm, G7, H7, B (= angol Bb), Fisz / F#, Esz / Eb …">
+      <div id="ctx"></div>
+      <div class="grid" id="roots"></div>
+      <div class="grid q" id="quals"></div>
+      <div class="row">
+        <button id="mvL" title="az előző szótagra (Shift+←)">◀ előző szótagra</button>
+        <button id="mvR" title="a következő szótagra (Shift+→)">következőre ▶</button>
+      </div>
+      <div class="row">
+        <button id="tDown" title="fél hanggal lejjebb (↓)">− fél hang</button>
+        <button id="tUp" title="fél hanggal feljebb (↑)">+ fél hang</button>
+        <button class="red" id="delCh" title="törlés (Delete)">🗑 Törlés</button>
+      </div>
+    </div>
+
+    <h3>Mentés</h3>
+    <button class="y" id="saveBtn" disabled style="width:100%;font-size:16px;padding:10px">💾 Mentés a GitHubra</button>
+    <div id="saveMsg" class="mut"></div>
+
+    <h3>Az egész dal</h3>
+    <div class="row"><button id="undoBtn" disabled title="Ctrl+Z">↶ Visszavonás</button><button id="revertBtn" disabled>Betöltött állapot vissza</button></div>
+    <div class="row"><button id="allDown">Minden akkord − fél hang</button><button id="allUp">+ fél hang</button></div>
+    <div class="row"><button class="red" id="clearAll">Összes akkord törlése (tiszta lap)</button></div>
+
+    <h3>Billentyűk</h3>
+    <div id="help">
+      <kbd>←</kbd> <kbd>→</kbd> előző / következő akkord<br>
+      <kbd>↑</kbd> <kbd>↓</kbd> fél hanggal fel / le<br>
+      <kbd>Shift</kbd>+<kbd>←</kbd> <kbd>→</kbd> akkord áttolása a szomszéd szótagra<br>
+      betű (<kbd>A</kbd>…<kbd>H</kbd>): beírás, <kbd>Enter</kbd> = kész, jön a következő<br>
+      <kbd>Delete</kbd> törlés · <kbd>Ctrl</kbd>+<kbd>Z</kbd> visszavonás · <kbd>Ctrl</kbd>+<kbd>S</kbd> mentés<br><br>
+      Jelölés: magyar — <b>H</b> = a „H” akkord, <b>B</b> = a „B” (angolul Bb). Moll: <b>Am</b>, szeptim: <b>G7</b>, kereszt/bé: <b>F#</b> vagy <b>Fisz</b>, <b>Eb</b> vagy <b>Esz</b>.
+      Halvány dőlt akkord = az előző sorból még szóló akkord (rákattintva ide is beírható).<br><br>
+      Kilépés: <a href="#" id="logout">kulcs törlése erről a gépről</a>
+    </div>
+  </div>
+</div>
+
+<script src="karaoke-core.js?v=202611031110"></script>
+<script src="karaoke-hangnem.js?v=202611060200"></script>
+<script>
+// ============================================================
+// AKKORD SZERKESZTŐ — a karaoke dalok .akkord.lrc fájljainak javítása / kézi beírása.
+// A dal szövege (.lrc) és a karaoke-songs.js nem változik, csak az akkordfájl.
+// Az akkordfájlban angol jelölés van (B = H, Bb = magyar B) — itt mindig magyarul látszik.
+// ============================================================
+let OWNER='MagFerenc',REPO='songtext',BRANCH='main';
+if(/\.github\.io$/i.test(location.hostname)){const seg=location.pathname.split('/').filter(Boolean);
+  if(seg.length>1||!/\.html$/i.test(seg[0]||''))REPO=seg[0];}
+const LIST='karaoke-songs.js';
+
+const $=id=>document.getElementById(id);
+const norm=x=>(x||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]+/g,' ').trim();
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+// ---------- GitHub API ----------
+let TOKEN='';
+async function gh(path,opt={}){
+  const r=await fetch('https://api.github.com'+path,{...opt,cache:'no-store',headers:{'Authorization':'Bearer '+TOKEN,'Accept':opt.accept||'application/vnd.github+json',
+    'X-GitHub-Api-Version':'2022-11-28',...(opt.body?{'Content-Type':'application/json'}:{})}});
+  if(!r.ok){const t=await r.text();const e=new Error('GitHub '+r.status+': '+t.slice(0,200));e.status=r.status;throw e;}
+  return opt.accept==='application/vnd.github.raw+json'?r.text():r.json();
+}
+const encPath=p=>p.split('/').map(encodeURIComponent).join('/');
+const getRaw=(path,ref)=>gh(`/repos/${OWNER}/${REPO}/contents/${encPath(path)}?ref=${encodeURIComponent(ref)}`,{accept:'application/vnd.github.raw+json'});
+const evalList=(txt,name)=>new Function(txt+'\n;return '+name+';')();
+const b64=s=>{const b=new TextEncoder().encode(s);let x='';for(let i=0;i<b.length;i+=0x8000)x+=String.fromCharCode.apply(null,b.subarray(i,i+0x8000));return btoa(x);};
+const unb64=s=>new TextDecoder().decode(Uint8Array.from(atob(s.replace(/\s/g,'')),c=>c.charCodeAt(0)));
+
+// ---------- állapot ----------
+let KS=[];                 // a karaoke dalok listája
+let song=null,lrc=null,lines=[],songLen=0;
+let CH=[];                 // akkordok: {id, t, c (angol jelöléssel)}
+let chPath='',chSha=null,chMeta={},origSer='';
+let key=null,selId=null,nextId=1,undo=[],typing=false;
+
+// ---------- belépés ----------
+async function login(tok){
+  TOKEN=tok.trim();if(!TOKEN)return;$('loginMsg').textContent='Ellenőrzés…';
+  try{
+    const repo=await gh(`/repos/${OWNER}/${REPO}`);
+    if(!repo.permissions||!repo.permissions.push)throw new Error('Ezzel a kulccsal nincs írási jog a '+OWNER+'/'+REPO+' repóhoz.');
+    BRANCH=repo.default_branch||'main';
+    if($('remember').checked)try{localStorage.setItem('ghToken',TOKEN)}catch(e){}
+    KS=evalList(await getRaw(LIST,BRANCH),'KARAOKE_SONGS');
+    $('loginBox').classList.add('hidden');$('wrap').classList.remove('hidden');
+    ['srchBox','prevSong','nextSong'].forEach(i=>$(i).classList.remove('hidden'));
+    const h=decodeURIComponent(location.hash.slice(1));
+    const s=h&&KS.find(x=>x.url===h||String(x.id)===h);
+    if(s)openSong(s);else $('q').focus();
+  }catch(e){
+    $('loginMsg').innerHTML='<span class="no">✘ '+esc(e.status===401?'Hibás vagy lejárt kulcs.':e.message)+'</span>';
+    if(e.status===401)try{localStorage.removeItem('ghToken')}catch(_){}
+  }
+}
+
+// ---------- keresés ----------
+let hitList=[],hitAct=0;
+const folderOf=s=>(s.url||'').replace(/^Karaoke\//,'').replace(/\/[^\/]*$/,'');
+function search(){
+  const q=norm($('q').value);
+  hitList=(q?KS.filter(s=>String(s.id).startsWith(q)||norm(s.title+' '+(s.artist||'')).includes(q)):KS.filter(s=>s.id<1000)).slice(0,100);
+  hitAct=0;drawHits();
+}
+function drawHits(){
+  const h=$('hits');h.innerHTML='';h.classList.remove('hidden');
+  if(!hitList.length){h.innerHTML='<div class="mut">Nincs találat.</div>';return;}
+  hitList.forEach((s,i)=>{const d=document.createElement('div');if(i===hitAct)d.className='act';
+    d.innerHTML='<b>'+s.id+'</b> · '+esc(s.title)+(s.artist?' — '+esc(s.artist):'')+'<br><small>'+esc(folderOf(s))+'</small>';
+    d.onmousedown=e=>{e.preventDefault();pick(s)};h.appendChild(d);});
+}
+function pick(s){$('hits').classList.add('hidden');$('q').value='';$('q').blur();openSong(s);}
+
+// ---------- dal betöltése ----------
+const dirty=()=>!!song&&ser()!==origSer;
+async function openSong(s){
+  if(dirty()&&!confirm('A mostani dal akkordjai nincsenek elmentve. Eldobod a módosításokat?'))return;
+  $('song').innerHTML='<div id="empty">Betöltés…</div>';selId=null;showSel();
+  try{
+    const txt=await getRaw(s.url,BRANCH);
+    const path=chordUrlFor(s.url);let sha=null,ctxt='';
+    try{const j=await gh(`/repos/${OWNER}/${REPO}/contents/${encPath(path)}?ref=${encodeURIComponent(BRANCH)}`);sha=j.sha;ctxt=unb64(j.content);}
+    catch(e){if(e.status!==404)throw e;}
+    song=s;lrc=parseLrc(txt);chPath=path;chSha=sha;
+    lines=lrc.lines.filter(l=>l.syl.map(x=>x.s).join('').trim());
+    const cp=ctxt?parseLrc(ctxt):{meta:{},lines:[]};chMeta=cp.meta;
+    CH=cp.lines.map(l=>({id:nextId++,t:l.t,c:l.syl.map(x=>x.s).join('').trim()})).filter(x=>x.c);
+    songLen=Math.max(lrc.length||0,...CH.map(c=>c.t+2),0);
+    key=hnDetectKey(sorted(),songLen);
+    origSer=ser();undo=[];
+    history.replaceState(null,'','#'+encodeURIComponent(s.url));
+    document.title='🎸 '+s.id+' '+s.title+' — akkordok';
+    $('saveMsg').textContent='';
+    render();refresh();
+  }catch(e){$('song').innerHTML='<div id="empty"><span class="no">✘ Nem sikerült betölteni: '+esc(e.message)+'</span></div>';}
+}
+function stepSong(d){
+  if(!KS.length)return;
+  const i=song?KS.indexOf(song):-1,n=KS[Math.max(0,Math.min(KS.length-1,i+d))];
+  if(n&&n!==song)openSong(n);
+}
+
+// ---------- akkordnevek (magyar ↔ angol) ----------
+const disp=c=>c==='N.C.'?'N.C.':hnChord(c,0,key);                      // a fájlból → magyar
+const toEng=n=>n==='H'?'B':n==='B'?'Bb':n;                               // magyar hangnév → angol
+function eng(p,k){const N=hnNames(k);return toEng(N[(p.r+120)%12])+p.q+(p.bass!==null&&p.bass!==undefined?'/'+toEng(N[(p.bass+120)%12]):'');}
+// Ferenc beírása (magyar jelöléssel) → angol akkordnév a fájlba; null = nem értelmezhető
+function parseHu(s){
+  s=(s||'').trim().replace(/\s+/g,'');
+  if(!s)return null;
+  if(/^(n\.?c\.?|nc|x|szünet|szunet)$/i.test(s))return 'N.C.';
+  const AC='(isz|is|esz|es|s(?!us)|#|b)';
+  const m=new RegExp('^([A-Ha-h])'+AC+'?(.*?)(?:/([A-Ha-h])'+AC+'?)?$').exec(s);
+  if(!m)return null;
+  const B={c:0,d:2,e:4,f:5,g:7,a:9,b:10,h:11};
+  const acc=a=>!a?0:/^(#|is|isz)$/.test(a)?1:-1;
+  const root=(l,a)=>l.toLowerCase()==='b'&&a==='b'?10:(B[l.toLowerCase()]+acc(a)+12)%12;   // "Bb" = B
+  let q=m[3]||'';
+  q=q.replace(/^(moll|mol|min|mi)/i,'m').replace(/^(dúr|dur|maj$)/i,q=>/maj/i.test(q)?'maj7':'')
+     .replace(/^-(?=\d|$)/,'m').replace(/^\+$/,'aug').replace(/°/g,'dim').replace(/^M7$/,'maj7');
+  if(!/^[a-z0-9#+\-()]{0,9}$/i.test(q))return null;
+  return eng({r:root(m[1],m[2]),q,bass:m[4]?root(m[4],m[5]):null},key);
+}
+function shiftChord(c,d,k){const p=hnParse(c);if(!p)return c;p.r+=d;if(p.bass!==null)p.bass+=d;return eng(p,k);}
+
+// ---------- akkord ↔ szótag hozzárendelés ----------
+const sorted=()=>[...CH].sort((a,b)=>a.t-b.t||a.id-b.id);
+const lineEnds=()=>lines.map((l,i)=>Math.min(lines[i+1]?lines[i+1].t-0.3:Infinity,l.syl[l.syl.length-1].t+2));
+function layout(){
+  const ends=lineEnds(),onSyl=lines.map(l=>l.syl.map(()=>[])),gaps=lines.map(()=>[]).concat([[]]),pos={};
+  for(const c of sorted()){
+    let i=-1;for(let k=0;k<lines.length;k++){if(c.t>=lines[k].t-0.3)i=k;else break;}
+    if(i>=0&&c.t<ends[i]){
+      const sy=lines[i].syl;let k=0;for(let j=0;j<sy.length;j++){if(sy[j].t<=c.t+0.15)k=j;else break;}
+      onSyl[i][k].push(c);pos[c.id]={type:'syl',i,k};
+    }else{gaps[i+1].push(c);pos[c.id]={type:'gap',g:i+1};}
+  }
+  return {ends,onSyl,gaps,pos};
+}
+const gapRange=(g,ends)=>[g===0?0:ends[g-1],g<lines.length?lines[g].t-0.3:Math.max(songLen,(CH.length?Math.max(...CH.map(c=>c.t)):0)+2)];
+function activeAt(t){let a=null;for(const c of sorted()){if(c.t<=t)a=c;else break;}return a;}
+const fmt=t=>{const cs=Math.max(0,Math.round(t*100));return String(Math.floor(cs/6000)).padStart(2,'0')+':'+((cs%6000)/100).toFixed(2).padStart(5,'0');};
+const fmtS=t=>Math.floor(t/60)+':'+String(Math.floor(t%60)).padStart(2,'0');
+
+// ---------- kirajzolás ----------
+function chip(c,gap){
+  const e=document.createElement('span');e.className='ch'+(c.c==='N.C.'?' nc':'')+(c.id===selId?' sel':'');e.dataset.id=c.id;
+  e.textContent=disp(c.c);if(gap){const s=document.createElement('small');s.textContent=fmtS(c.t);e.appendChild(s);}
+  return e;
+}
+function render(){
+  const box=$('song');box.innerHTML='';
+  if(!song)return;
+  if(!lines.length){box.innerHTML='<div id="empty">Ebben a dalban nincs időzített szöveg.</div>';return;}
+  const {ends,onSyl,gaps}=layout();
+  const gapRow=g=>{
+    const [from,to]=gapRange(g,ends),cs=gaps[g];
+    if(!cs.length&&to-from<2.5)return;
+    const d=document.createElement('div');d.className='gap';
+    d.innerHTML='<span class="lbl">'+(g===0?'♪ előjáték':g===lines.length?'♪ vége':'♪ közjáték')+' '+fmtS(from)+'</span>';
+    cs.forEach(c=>d.appendChild(chip(c,true)));
+    const a=document.createElement('span');a.className='add';a.textContent='+';a.title='új akkord ide';a.dataset.gap=g;d.appendChild(a);
+    box.appendChild(d);
+  };
+  gapRow(0);
+  lines.forEach((l,i)=>{
+    const d=document.createElement('div');d.className='ln';
+    let wd=null;
+    l.syl.forEach((x,k)=>{
+      if(!wd){wd=document.createElement('span');wd.className='wd';d.appendChild(wd);}
+      const sy=document.createElement('span');sy.className='sy';sy.dataset.i=i;sy.dataset.k=k;
+      const cs=document.createElement('span');cs.className='cs';
+      onSyl[i][k].forEach(c=>cs.appendChild(chip(c,false)));
+      if(k===0&&!onSyl[i][0].length){const a=activeAt(x.t+0.15);
+        if(a&&a.c!=='N.C.'){const g=document.createElement('span');g.className='ch ghost';g.textContent=disp(a.c);g.title='még az előző akkord szól — kattints, ha ide is be akarod írni';cs.appendChild(g);}}
+      const tx=document.createElement('span');tx.className='tx';tx.textContent=x.s.replace(/\s+$/,'');
+      sy.appendChild(cs);sy.appendChild(tx);wd.appendChild(sy);
+      if(/\s$/.test(x.s)||k===l.syl.length-1){wd=null;d.appendChild(document.createTextNode(' '));}
+    });
+    box.appendChild(d);
+    gapRow(i+1);
+  });
+}
+
+// ---------- kijelölés, oldalsáv ----------
+const selCh=()=>CH.find(c=>c.id===selId)||null;
+function select(id,scroll=true){
+  selId=id;typing=false;
+  document.querySelectorAll('.ch.sel').forEach(e=>e.classList.remove('sel'));
+  const e=document.querySelector('.ch[data-id="'+id+'"]');
+  if(e){e.classList.add('sel');if(scroll)e.scrollIntoView({block:'nearest',inline:'nearest'});}
+  showSel();
+}
+function showSel(){
+  const c=selCh();
+  $('selBox').classList.toggle('hidden',!!c);$('selEd').classList.toggle('hidden',!c);
+  if(!c)return;
+  if(document.activeElement!==$('chIn')){$('chIn').value=disp(c.c);$('chIn').classList.remove('bad');}
+  const p=layout().pos[c.id];
+  if(p&&p.type==='syl'){const l=lines[p.i];
+    $('ctx').innerHTML=fmtS(c.t)+' · '+l.syl.map((x,k)=>k===p.k?'<b style="color:#ffcc00">'+esc(x.s)+'</b>':esc(x.s)).join('');}
+  else $('ctx').textContent=fmtS(c.t)+' · szöveg nélküli rész';
+  const pr=hnParse(c.c),N=hnNames(key);
+  [...$('roots').children].forEach((b,r)=>{b.textContent=N[r];b.classList.toggle('on',!!pr&&pr.r===r);});
+  [...$('quals').children].forEach((b,k)=>{const q=QUALS[k][0];b.classList.toggle('on',q==='N.C.'?c.c==='N.C.':!!pr&&pr.q===q);});
+}
+const QUALS=[['','dúr'],['m','moll'],['7','7'],['m7','m7'],['maj7','maj7'],['6','6'],['sus4','sus4'],['dim','dim'],['aug','aug'],['9','9'],['m6','m6'],['N.C.','szünet']];
+for(let r=0;r<12;r++){const b=document.createElement('button');b.onclick=()=>setRoot(r);$('roots').appendChild(b);}
+QUALS.forEach(([q,lb])=>{const b=document.createElement('button');b.textContent=lb;b.onclick=()=>setQual(q);$('quals').appendChild(b);});
+function refresh(){
+  const n=diffCount();
+  $('saveBtn').disabled=!song||!n;
+  $('saveBtn').textContent=n?'💾 Mentés a GitHubra ('+n+' változás)':'💾 Mentés a GitHubra';
+  $('undoBtn').disabled=!undo.length;$('revertBtn').disabled=!n;
+  let src=!chSha?'<span class="warn">még nincs akkordfájl</span>'
+    :/ferenc|kézzel/i.test(chMeta.by||'')?'<span class="ok">kézzel javított</span>'
+    :/becsült/i.test(chMeta.by||'')?'<span class="warn">becsült (a MIDI hangjaiból)</span>'
+    :/xf|midi/i.test(chMeta.by||'')?'a MIDI fájlból':esc(chMeta.by||'?');
+  if(song)$('songInfo').innerHTML='<b>'+song.id+' · '+esc(song.title)+'</b>'+(song.artist?'<br>'+esc(song.artist):'')
+    +'<br><span class="mut">'+esc(folderOf(song))+'</span><br>Akkordok: '+src+' · '+CH.length+' db'
+    +'<br>Hangnem (becslés): <b style="font-size:14px">'+hnKeyName(key)+'</b>';
+}
+
+// ---------- módosítások ----------
+const ser=()=>sorted().map(c=>fmt(c.t)+'|'+c.c).join('\n');
+function diffCount(){
+  if(!song)return 0;
+  const a=origSer?origSer.split('\n'):[],b=ser()?ser().split('\n'):[],sa=new Set(a),sb=new Set(b);
+  return a.filter(x=>!sb.has(x)).length+b.filter(x=>!sa.has(x)).length;
+}
+function pushUndo(){undo.push(JSON.stringify({CH,key}));if(undo.length>300)undo.shift();}
+function changed(rerender=true){if(rerender){render();if(selId)select(selId,false);}showSel();refresh();}
+function addAt(t){
+  pushUndo();
+  const a=activeAt(t);
+  const c={id:nextId++,t:Math.max(0,t),c:a?a.c:(key&&key.minor?eng({r:key.r,q:'m',bass:null},key):'C')};
+  CH.push(c);changed();select(c.id);
+  $('chIn').focus();$('chIn').select();typing=true;
+}
+function setRoot(r){const c=selCh();if(!c)return;pushUndo();const p=hnParse(c.c)||{q:'',bass:null};c.c=eng({r,q:p.q,bass:null},key);changed();}
+function setQual(q){const c=selCh();if(!c)return;pushUndo();
+  if(q==='N.C.')c.c='N.C.';else{const p=hnParse(c.c);c.c=eng({r:p?p.r:(key?key.r:0),q,bass:p?p.bass:null},key);}changed();}
+function transposeSel(d){const c=selCh();if(!c||c.c==='N.C.')return;pushUndo();c.c=shiftChord(c.c,d,key);$('chIn').value=disp(c.c);changed();}
+function delSel(){
+  const c=selCh();if(!c)return;pushUndo();
+  const s=sorted(),i=s.indexOf(c);CH=CH.filter(x=>x!==c);
+  const n=s[i+1]||s[i-1];selId=n?n.id:null;changed();if(selId)select(selId);
+}
+function navSel(d){
+  const s=sorted();if(!s.length)return;
+  const i=s.findIndex(c=>c.id===selId);
+  const n=i<0?(d>0?s[0]:s[s.length-1]):s[Math.max(0,Math.min(s.length-1,i+d))];
+  select(n.id);
+}
+function moveSel(d){
+  const c=selCh();if(!c)return;
+  const L=layout(),p=L.pos[c.id];
+  if(p.type==='syl'){
+    const flat=[];lines.forEach((l,i)=>l.syl.forEach((x,k)=>flat.push({i,k,t:x.t})));
+    const j=flat.findIndex(x=>x.i===p.i&&x.k===p.k)+d;
+    if(j<0||j>=flat.length)return;
+    pushUndo();c.t=flat[j].t;
+  }else{
+    const [from,to]=gapRange(p.g,L.ends),beat=karaokeBar(lrc.meta)/(parseInt((lrc.meta.meter||'4/4'),10)||4);
+    const t=c.t+d*beat;if(t<from-0.01||t>=to)return;
+    pushUndo();c.t=t;
+  }
+  changed();
+}
+function transposeAll(d){
+  if(!CH.length)return;pushUndo();
+  const nk=hnShiftKey(key,d);CH.forEach(c=>{if(c.c!=='N.C.')c.c=shiftChord(c.c,d,nk);});key=nk;changed();
+}
+function doUndo(){
+  if(!undo.length)return;const u=JSON.parse(undo.pop());CH=u.CH;key=u.key;
+  if(!CH.some(c=>c.id===selId))selId=null;changed();
+}
+
+// ---------- mentés ----------
+function fileText(){
+  const ti=(chMeta.ti&&!/^\s*$/.test(chMeta.ti))?chMeta.ti:song.title+' — akkordok';
+  return '[ti:'+ti+']\n[by:Ferenc — kézzel javított akkordok]\n'+sorted().map(c=>'['+fmt(c.t)+']'+c.c).join('\n')+'\n';
+}
+async function save(force=false){
+  if(!song)return;
+  const btn=$('saveBtn');btn.disabled=true;$('saveMsg').innerHTML='Mentés…';
+  try{
+    if(force){try{chSha=(await gh(`/repos/${OWNER}/${REPO}/contents/${encPath(chPath)}?ref=${encodeURIComponent(BRANCH)}`)).sha;}catch(e){if(e.status===404)chSha=null;else throw e;}}
+    const n=diffCount();
+    const body={message:'Akkordok: '+song.id+' '+song.title+' — kézzel javítva ('+n+' változás)\n\n'+chPath+'\n\nMentve az AkkordSzerkeszto.html lapról.',
+      content:b64(fileText()),branch:BRANCH};
+    if(chSha)body.sha=chSha;
+    const r=await gh(`/repos/${OWNER}/${REPO}/contents/${encPath(chPath)}`,{method:'PUT',body:JSON.stringify(body)});
+    chSha=r.content.sha;chMeta={ti:chMeta.ti,by:'Ferenc — kézzel javított akkordok'};origSer=ser();
+    $('saveMsg').innerHTML='<span class="ok">✔ Elmentve ('+new Date().toLocaleTimeString('hu-HU',{hour:'2-digit',minute:'2-digit'})+').</span>\nKb. 1–2 perc múlva a karaoke vezérlő már ezt használja (ha nyitva van, töltsd újra a dalt).';
+  }catch(e){
+    if(e.status===409||e.status===422){
+      $('saveMsg').innerHTML='<span class="no">✘ Ezt az akkordfájlt közben máshol is módosították.</span>\n<button class="red" id="forceBtn">Felülírom az enyémmel</button>';
+      $('forceBtn').onclick=()=>save(true);
+    }else $('saveMsg').innerHTML='<span class="no">✘ A mentés nem sikerült: '+esc(e.message)+'</span>';
+  }
+  refresh();
+}
+
+// ---------- események ----------
+$('loginBtn').onclick=()=>login($('tok').value);
+$('tok').onkeydown=e=>{if(e.key==='Enter')login($('tok').value)};
+$('logout').onclick=e=>{e.preventDefault();try{localStorage.removeItem('ghToken')}catch(_){}TOKEN='';location.hash='';location.reload();};
+$('q').oninput=search;$('q').onfocus=search;
+$('q').onblur=()=>setTimeout(()=>$('hits').classList.add('hidden'),150);
+$('q').onkeydown=e=>{
+  if(e.key==='ArrowDown'||e.key==='ArrowUp'){e.preventDefault();hitAct=Math.max(0,Math.min(hitList.length-1,hitAct+(e.key==='ArrowDown'?1:-1)));drawHits();
+    const a=$('hits').querySelector('.act');if(a)a.scrollIntoView({block:'nearest'});}
+  else if(e.key==='Enter'&&hitList[hitAct])pick(hitList[hitAct]);
+  else if(e.key==='Escape'){$('q').blur();}
+};
+$('prevSong').onclick=()=>stepSong(-1);$('nextSong').onclick=()=>stepSong(1);
+$('song').onclick=e=>{
+  const ch=e.target.closest('.ch'),sy=e.target.closest('.sy'),ad=e.target.closest('.add');
+  if(ch&&!ch.classList.contains('ghost')){select(+ch.dataset.id,false);return;}
+  if(ad){const L=layout(),g=+ad.dataset.gap,[from,to]=gapRange(g,L.ends),cs=L.gaps[g],bar=karaokeBar(lrc.meta);
+    let t=cs.length?cs[cs.length-1].t+bar:from+0.05;if(t>=to-0.05)t=cs.length?(cs[cs.length-1].t+to)/2:from;addAt(t);return;}
+  if(sy){const x=lines[+sy.dataset.i].syl[+sy.dataset.k];
+    const L=layout(),here=L.onSyl[+sy.dataset.i][+sy.dataset.k];
+    if(here.length&&!ch)select(here[0].id,false);else addAt(x.t);}
+};
+$('chIn').onfocus=()=>{typing=false;};
+$('chIn').oninput=()=>{
+  const c=selCh();if(!c)return;const v=parseHu($('chIn').value);
+  $('chIn').classList.toggle('bad',!v);
+  if(v){if(!typing){pushUndo();typing=true;}c.c=v;
+    const e=document.querySelector('.ch[data-id="'+c.id+'"]');
+    if(e){e.firstChild.nodeValue=disp(v);}
+    showSel();refresh();}
+};
+$('chIn').onkeydown=e=>{
+  if(e.key==='ArrowUp'||e.key==='ArrowDown'){e.preventDefault();typing=false;transposeSel(e.key==='ArrowUp'?1:-1);}
+  else if(e.key==='Enter'){e.preventDefault();if($('chIn').classList.contains('bad'))return;
+    $('chIn').blur();render();navSel(1);}
+  else if(e.key==='Escape'){$('chIn').blur();render();if(selId)select(selId,false);}
+  e.stopPropagation();
+};
+// (itt nem rajzolunk újra: egy épp folyamatban lévő kattintás különben elveszne)
+$('chIn').onblur=()=>{const c=selCh();if(c){$('chIn').value=disp(c.c);$('chIn').classList.remove('bad');}};
+$('mvL').onclick=()=>moveSel(-1);$('mvR').onclick=()=>moveSel(1);
+$('tDown').onclick=()=>transposeSel(-1);$('tUp').onclick=()=>transposeSel(1);
+$('delCh').onclick=delSel;
+$('saveBtn').onclick=()=>save();
+$('undoBtn').onclick=doUndo;
+$('revertBtn').onclick=()=>{if(!confirm('Visszaállítod a betöltéskori akkordokat? (A mostani módosítások elvesznek.)'))return;
+  pushUndo();CH=origSer?origSer.split('\n').map(x=>{const [t,c]=x.split('|');return{id:nextId++,t:parseLrcTime(t),c};}):[];
+  key=hnDetectKey(sorted(),songLen);selId=null;changed();};
+$('allDown').onclick=()=>transposeAll(-1);$('allUp').onclick=()=>transposeAll(1);
+$('clearAll').onclick=()=>{if(!CH.length)return;
+  if(!confirm('Törlöd a dal ÖSSZES akkordját, hogy elölről, kézzel írd be?\n(Mentésig semmi nem változik a GitHubon, és visszavonható.)'))return;
+  pushUndo();CH=[];selId=null;changed();};
+function setFs(px){px=Math.max(12,Math.min(40,px));document.documentElement.style.setProperty('--fs',px+'px');try{localStorage.setItem('akkordFs',px)}catch(e){}}
+const curFs=()=>parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--fs'))||20;
+$('fsDown').onclick=()=>setFs(curFs()-2);$('fsUp').onclick=()=>setFs(curFs()+2);
+try{const f=+localStorage.getItem('akkordFs');if(f)setFs(f);}catch(e){}
+
+document.addEventListener('keydown',e=>{
+  if(e.target.tagName==='INPUT')return;
+  if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='z'){e.preventDefault();doUndo();return;}
+  if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='s'){e.preventDefault();if(!$('saveBtn').disabled)save();return;}
+  if(!song||e.ctrlKey||e.metaKey||e.altKey)return;
+  if(e.key==='ArrowLeft'||e.key==='ArrowRight'){e.preventDefault();const d=e.key==='ArrowRight'?1:-1;if(e.shiftKey)moveSel(d);else navSel(d);}
+  else if(e.key==='ArrowUp'||e.key==='ArrowDown'){if(selId){e.preventDefault();transposeSel(e.key==='ArrowUp'?1:-1);}}
+  else if(e.key==='Delete'||e.key==='Backspace'){if(selId){e.preventDefault();delSel();}}
+  else if(e.key==='Enter'){if(selId){e.preventDefault();$('chIn').focus();$('chIn').select();}}
+  else if(/^[a-hA-H]$/.test(e.key)&&selId){e.preventDefault();const i=$('chIn');i.focus();i.value=e.key.toUpperCase();i.oninput();}
+});
+window.addEventListener('beforeunload',e=>{if(dirty()){e.preventDefault();e.returnValue='';}});
+window.addEventListener('hashchange',()=>{const h=decodeURIComponent(location.hash.slice(1)),s=KS.find(x=>x.url===h||String(x.id)===h);if(s&&s!==song)openSong(s);});
+try{const t=localStorage.getItem('ghToken');if(t)login(t);}catch(e){}
+</script></body></html>
