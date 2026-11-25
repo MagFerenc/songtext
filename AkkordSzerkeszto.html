@@ -40,6 +40,9 @@ button.fs{font-size:22px;font-weight:700;padding:6px 18px;min-width:64px}
 .tr.cur{background:#3a3000;outline:1px solid #ffcc00}
 .tr .num{color:#888;font-size:.85em;margin-right:6px}
 .tr .ar{color:#888}
+.tr .fk{color:#ffcc00;font-weight:700;margin-right:6px}
+#favBox summary{font-weight:700;color:#ffcc00}
+#favBox{border-bottom:1px solid #333;padding-bottom:6px;margin-bottom:6px}
 button.tg.on{background:#ffcc00;color:#111}
 #loginBox p{color:#999}
 
@@ -93,7 +96,7 @@ button.tg.on{background:#ffcc00;color:#111}
   <h1>🎸 Akkordok szerkesztése</h1>
   <button id="browseBtn" class="tg hidden" title="dalok mappák szerint">📁 Dalok</button>
   <div id="srchBox" class="hidden">
-    <input type="text" id="q" placeholder="Dal keresése: szám, cím vagy előadó (üresen: a PDF-es dalok)" autocomplete="off">
+    <input type="text" id="q" placeholder="Dal keresése: szám, K szám (pl. K7), cím vagy előadó — üresen: a kedvencek" autocomplete="off">
     <div id="hits" class="hidden"></div>
   </div>
   <button id="prevSong" class="hidden" title="előző dal a listában">◀ előző dal</button>
@@ -116,6 +119,7 @@ button.tg.on{background:#ffcc00;color:#111}
 <div id="wrap" class="hidden">
   <div id="browse" class="hidden">
     <div class="bt">Kattints egy mappára a kinyitáshoz, majd egy dalra a megnyitáshoz.</div>
+    <details id="favBox" open><summary>⭐ Kedvencek <span class="c" id="favCnt"></span></summary><div class="songs" id="favList"><div class="mut" style="padding:6px">Betöltés…</div></div></details>
     <div id="tree"></div>
   </div>
   <div id="song"><div id="empty">Keress rá egy dalra fent (szám, cím vagy előadó).<br>
@@ -170,6 +174,10 @@ button.tg.on{background:#ffcc00;color:#111}
   </div>
 </div>
 
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<script src="firebase-config.js?v=202611031110"></script>
+<script src="karaoke-kedvencek.js?v=202611041110"></script>
 <script src="karaoke-core.js?v=202611031110"></script>
 <script src="karaoke-hangnem.js?v=202611060200"></script>
 <script>
@@ -225,7 +233,7 @@ async function login(tok){
     KS=evalList(await getRaw(LIST,BRANCH),'KARAOKE_SONGS');
     $('loginBox').classList.add('hidden');$('wrap').classList.remove('hidden');
     ['srchBox','prevSong','nextSong','browseBtn'].forEach(i=>$(i).classList.remove('hidden'));
-    buildTree();fixHH();
+    buildTree();startFavs();fixHH();
     const h=decodeURIComponent(location.hash.slice(1));
     const s=h&&KS.find(x=>x.url===h||String(x.id)===h);
     if(s)openSong(s);else{setBrowse(true);$('q').focus();}
@@ -240,17 +248,22 @@ let hitList=[],hitAct=0;
 const folderOf=s=>(s.url||'').replace(/^Karaoke\//,'').replace(/\/[^\/]*$/,'');
 function search(){
   const q=norm($('q').value);
-  hitList=(q?KS.filter(s=>String(s.id).startsWith(q)||norm(s.title+' '+(s.artist||'')).includes(q)):KS.filter(s=>s.id<1000)).slice(0,100);
+  const k=parseK($('q').value);
+  const favSongs=FAVS.filter(f=>f.index>=0).map(f=>KS[f.index]);
+  hitList=(k!==null?FAVS.filter(f=>f.index>=0&&String(f.k).startsWith(String(k))).map(f=>KS[f.index])
+    :q?KS.filter(s=>String(s.id).startsWith(q)||norm(s.title+' '+(s.artist||'')).includes(q))
+    :(favSongs.length?favSongs:KS.filter(s=>s.id<1000))).slice(0,100);
   hitAct=0;drawHits();
 }
 function drawHits(){
   const h=$('hits');h.innerHTML='';h.classList.remove('hidden');
   if(!hitList.length){h.innerHTML='<div class="mut">Nincs találat.</div>';return;}
   hitList.forEach((s,i)=>{const d=document.createElement('div');if(i===hitAct)d.className='act';
-    d.innerHTML='<b>'+s.id+'</b> · '+esc(s.title)+(s.artist?' — '+esc(s.artist):'')+'<br><small>'+esc(folderOf(s))+'</small>';
+    const f=favOf(s);
+    d.innerHTML=(f?'<span style="color:#ffcc00;font-weight:700">★K'+f.k+'</span> · ':'')+'<b>'+s.id+'</b> · '+esc(s.title)+(s.artist?' — '+esc(s.artist):'')+'<br><small>'+esc(folderOf(s))+'</small>';
     d.onmousedown=e=>{e.preventDefault();pick(s)};h.appendChild(d);});
 }
-function pick(s){$('hits').classList.add('hidden');$('q').value='';$('q').blur();openSong(s);}
+function pick(s){stepFav=!!favOf(s)&&(parseK($('q').value)!==null||!norm($('q').value));$('hits').classList.add('hidden');$('q').value='';$('q').blur();openSong(s);}
 
 // ---------- mappafa (mint a Kedvencek lapon) ----------
 // A mappák csak kinyitáskor töltik be a dalaikat, így több ezer dal mellett is gyors.
@@ -269,7 +282,8 @@ function buildTree(){
         if(c.songs.length){const box=document.createElement('div');box.className='songs';
           c.songs.slice().sort((a,b)=>a.id-b.id).forEach(s=>{const d=document.createElement('div');d.className='tr';d._s=s;
             d.innerHTML='<span class="num">'+s.id+'.</span><b>'+esc(s.title)+'</b>'+(s.artist&&!s.title.includes(s.artist)?' <span class="ar">– '+esc(s.artist)+'</span>':'');
-            d.onclick=()=>openSong(s);box.appendChild(d);});
+            const f=favOf(s);if(f)d.insertAdjacentHTML('afterbegin','<span class="fk">★K'+f.k+'</span>');
+            d.onclick=()=>{stepFav=false;openSong(s);};box.appendChild(d);});
           det.appendChild(box);markTree();}
       });
       el.appendChild(det);
@@ -277,7 +291,27 @@ function buildTree(){
   };
   $('tree').innerHTML='';build(root,$('tree'));
 }
-function markTree(){document.querySelectorAll('#tree .tr').forEach(d=>d.classList.toggle('cur',d._s===song));}
+function markTree(){document.querySelectorAll('#browse .tr').forEach(d=>d.classList.toggle('cur',d._s===song));}
+// ---------- kedvencek (Firebase, ugyanaz, mint a vezérlőn és a Kedvencek rendezése lapon) ----------
+let FAVS=[],stepFav=false;
+const favOf=s=>FAVS.find(f=>f.index>=0&&KS[f.index]===s);
+function startFavs(){
+  try{
+    if(!firebase.apps.length)firebase.initializeApp(firebaseConfig);
+    watchFavorites(firebase.database(),KS,list=>{FAVS=list;drawFavs();});
+  }catch(e){$('favList').innerHTML='<div class="mut" style="padding:6px">A kedvencek most nem érhetők el.</div>';}
+}
+function drawFavs(){
+  const box=$('favList');box.innerHTML='';$('favCnt').textContent='('+FAVS.length+' dal)';
+  if(!FAVS.length){box.innerHTML='<div class="mut" style="padding:6px">Még nincs kedvenc.</div>';return;}
+  FAVS.forEach(f=>{const s=f.index>=0?KS[f.index]:null,d=document.createElement('div');d.className='tr';d._s=s;
+    d.innerHTML='<span class="fk">K'+f.k+'</span><b>'+esc(s?s.title:f.title)+'</b>'+((s?s.artist:f.artist)?' <span class="ar">– '+esc(s?s.artist:f.artist)+'</span>':'')
+      +(s?' <span class="num">'+s.id+'.</span>':' <span class="no">(nem található)</span>');
+    if(s)d.onclick=()=>{stepFav=true;openSong(s);};box.appendChild(d);});
+  markTree();if(song)refresh();
+  document.querySelectorAll('#tree .tr').forEach(d=>{const f=favOf(d._s),n=d.querySelector('.fk');if(n)n.remove();
+    if(f)d.insertAdjacentHTML('afterbegin','<span class="fk">★K'+f.k+'</span>');});
+}
 function setBrowse(on){
   $('browse').classList.toggle('hidden',!on);$('browseBtn').classList.toggle('on',on);
   if(on&&song){ // a megnyitott dal mappáinak kinyitása
@@ -316,8 +350,9 @@ async function openSong(s){
   }catch(e){$('song').innerHTML='<div id="empty"><span class="no">✘ Nem sikerült betölteni: '+esc(e.message)+'</span></div>';}
 }
 function stepSong(d){
-  if(!KS.length)return;
-  const i=song?KS.indexOf(song):-1,n=KS[Math.max(0,Math.min(KS.length-1,i+d))];
+  const L=stepFav&&favOf(song)?FAVS.filter(f=>f.index>=0).map(f=>KS[f.index]):KS;
+  if(!L.length)return;
+  const i=song?L.indexOf(song):-1,n=L[Math.max(0,Math.min(L.length-1,i+d))];
   if(n&&n!==song)openSong(n);
 }
 
@@ -453,7 +488,8 @@ function refresh(){
     :/ferenc|kézzel/i.test(chMeta.by||'')?'<span class="ok">kézzel javított</span>'
     :/becsült/i.test(chMeta.by||'')?'<span class="warn">becsült (a MIDI hangjaiból)</span>'
     :/xf|midi/i.test(chMeta.by||'')?'a MIDI fájlból':esc(chMeta.by||'?');
-  if(song)$('songInfo').innerHTML='<b>'+song.id+' · '+esc(song.title)+'</b>'+(song.artist?'<br>'+esc(song.artist):'')
+  const fv=song&&favOf(song);
+  if(song)$('songInfo').innerHTML=(fv?'<span style="color:#ffcc00;font-weight:700">⭐ K'+fv.k+'</span> · ':'')+'<b>'+song.id+' · '+esc(song.title)+'</b>'+(song.artist?'<br>'+esc(song.artist):'')
     +'<br><span class="mut">'+esc(folderOf(song))+'</span><br>Akkordok: '+src+' · '+CH.length+' db'
     +(BAK?'<br><span class="mut">Az eredeti generált akkordok megvannak (.bak)</span>':'')
     +'<br>Hangnem (becslés): <b style="font-size:17px">'+hnKeyName(key)+'</b>';
